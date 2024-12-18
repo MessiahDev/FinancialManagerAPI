@@ -21,16 +21,28 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    // Definir o esquema de segurança
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         In = ParameterLocation.Header,
-        Description = "Please enter JWT with Bearer into field",
+        Description = "Insira o token JWT no campo Authorization com o prefixo Bearer.",
         Name = "Authorization",
         Type = SecuritySchemeType.ApiKey
     });
 
-    c.OperationFilter<SwaggerSecurityRequirementsOperationFilter>();
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
 });
 
 string? mySqlConnection = builder.Configuration.GetConnectionString("DefaultConnection");

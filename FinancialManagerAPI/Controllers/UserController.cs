@@ -83,6 +83,7 @@ namespace FinancialManagerAPI.Controllers
             return Ok(new { Token = token });
         }
 
+        [Authorize]
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateUserDto updateDto)
         {
@@ -103,6 +104,7 @@ namespace FinancialManagerAPI.Controllers
             return Ok(new { Message = $"User {id} updated successfully." });
         }
 
+        [Authorize]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -121,6 +123,7 @@ namespace FinancialManagerAPI.Controllers
             return Ok(new { Message = $"User {id} deleted successfully." });
         }
 
+        [Authorize]
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -129,6 +132,7 @@ namespace FinancialManagerAPI.Controllers
             return Ok(usersDto);
         }
 
+        [Authorize]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
