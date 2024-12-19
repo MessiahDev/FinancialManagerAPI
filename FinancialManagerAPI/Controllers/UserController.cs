@@ -10,7 +10,6 @@ namespace FinancialManagerAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
     public class UserController : ControllerBase
     {
         private readonly IUnitOfWork _unitOfWork;
@@ -36,115 +35,163 @@ namespace FinancialManagerAPI.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterUserDto registerDto)
         {
-            var existingUser = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == registerDto.Email);
-            if (existingUser != null)
+            try
             {
-                _logger.LogWarning($"Email {registerDto.Email} is already in use.");
-                return BadRequest("Email already in use.");
+                var existingUser = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == registerDto.Email);
+                if (existingUser != null)
+                {
+                    _logger.LogWarning($"Email {registerDto.Email} is already in use.");
+                    return BadRequest("Email already in use.");
+                }
+
+                var hashedPassword = _passwordService.HashPassword(registerDto.Password);
+
+                var user = new User
+                {
+                    Name = registerDto.Name,
+                    Email = registerDto.Email,
+                    PasswordHash = hashedPassword
+                };
+
+                _unitOfWork.Users.Add(user);
+                await _unitOfWork.CommitAsync();
+
+                _logger.LogInformation($"User {registerDto.Name} registered successfully. Email: {registerDto.Email}");
+
+                return Ok("User registered successfully!");
             }
-
-            var hashedPassword = _passwordService.HashPassword(registerDto.Password);
-
-            var user = new User
+            catch (Exception ex)
             {
-                Name = registerDto.Name,
-                Email = registerDto.Email,
-                PasswordHash = hashedPassword
-            };
-
-            _unitOfWork.Users.Add(user);
-            await _unitOfWork.CommitAsync();
-
-            _logger.LogInformation($"User {registerDto.Name} registered successfully. Email: {registerDto.Email}");
-
-            return Ok("User registered successfully!");
+                _logger.LogError(ex, "An error occurred while registering the user.");
+                return StatusCode(500, "Internal server error.");
+            }
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
         {
-            if (!ModelState.IsValid)
+            try
             {
-                return BadRequest(ModelState);
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == loginDto.Email);
+
+                if (user == null || !_passwordService.VerifyPassword(loginDto.Password, user.PasswordHash))
+                {
+                    _logger.LogWarning($"Failed login attempt for email: {loginDto.Email}");
+                    return Unauthorized("Invalid credentials.");
+                }
+
+                var token = _authService.GenerateToken(user.Email, user.Id.ToString(), user.Role);
+
+                _logger.LogInformation($"User {user.Email} (ID: {user.Id}) logged in successfully.");
+
+                return Ok(new { Token = token });
             }
-
-            var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == loginDto.Email);
-
-            if (user == null || !_passwordService.VerifyPassword(loginDto.Password, user.PasswordHash))
+            catch (Exception ex)
             {
-                _logger.LogWarning($"Failed login attempt for email: {loginDto.Email}");
-                return Unauthorized("Invalid credentials.");
+                _logger.LogError($"An error occurred during login: {ex.Message}");
+                return StatusCode(500, "Internal server error");
             }
-
-            var token = _authService.GenerateToken(user.Email, user.Id.ToString(), user.Role);
-
-            _logger.LogInformation($"User {user.Email} (ID: {user.Id}) logged in successfully.");
-
-            return Ok(new { Token = token });
         }
 
         [Authorize]
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateUserDto updateDto)
         {
-            var existingUser = await _unitOfWork.Users.GetByIdAsync(id);
-            if (existingUser == null)
+            try
             {
-                _logger.LogWarning($"User with ID {id} not found.");
-                return NotFound();
+                var existingUser = await _unitOfWork.Users.GetByIdAsync(id);
+                if (existingUser == null)
+                {
+                    _logger.LogWarning($"User with ID {id} not found.");
+                    return NotFound();
+                }
+
+                _mapper.Map(updateDto, existingUser);
+
+                _unitOfWork.Users.Update(existingUser);
+                await _unitOfWork.CommitAsync();
+
+                _logger.LogInformation($"User {id} updated successfully.");
+
+                return Ok(new { Message = $"User {id} updated successfully." });
             }
-
-            _mapper.Map(updateDto, existingUser);
-
-            _unitOfWork.Users.Update(existingUser);
-            await _unitOfWork.CommitAsync();
-
-            _logger.LogInformation($"User {id} updated successfully.");
-
-            return Ok(new { Message = $"User {id} updated successfully." });
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while updating user.");
+                return StatusCode(500, "Internal server error.");
+            }
         }
 
         [Authorize]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var user = await _unitOfWork.Users.GetByIdAsync(id);
-            if (user == null)
+            try
             {
-                _logger.LogWarning($"User with ID {id} not found.");
-                return NotFound();
+                var user = await _unitOfWork.Users.GetByIdAsync(id);
+                if (user == null)
+                {
+                    _logger.LogWarning($"User with ID {id} not found.");
+                    return NotFound();
+                }
+
+                _unitOfWork.Users.Remove(user);
+                await _unitOfWork.CommitAsync();
+
+                _logger.LogInformation($"User {id} deleted successfully.");
+
+                return Ok(new { Message = $"User {id} deleted successfully." });
             }
-
-            _unitOfWork.Users.Remove(user);
-            await _unitOfWork.CommitAsync();
-
-            _logger.LogInformation($"User {id} deleted successfully.");
-
-            return Ok(new { Message = $"User {id} deleted successfully." });
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while deleting user.");
+                return StatusCode(500, "Internal server error.");
+            }
         }
 
         [Authorize]
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var users = await _unitOfWork.Users.GetAllAsync();
-            var usersDto = _mapper.Map<IEnumerable<UserDto>>(users);
-            return Ok(usersDto);
+            try
+            {
+                var users = await _unitOfWork.Users.GetAllAsync();
+                var usersDto = _mapper.Map<IEnumerable<UserDto>>(users);
+                return Ok(usersDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching all users.");
+                return StatusCode(500, "Internal server error.");
+            }
         }
 
         [Authorize]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var user = await _unitOfWork.Users.GetByIdAsync(id);
-            if (user == null)
+            try
             {
-                _logger.LogWarning($"User with ID {id} not found.");
-                return NotFound();
-            }
+                var user = await _unitOfWork.Users.GetByIdAsync(id);
+                if (user == null)
+                {
+                    _logger.LogWarning($"User with ID {id} not found.");
+                    return NotFound();
+                }
 
-            var userDto = _mapper.Map<UserDto>(user);
-            return Ok(userDto);
+                var userDto = _mapper.Map<UserDto>(user);
+                return Ok(userDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching user with ID {UserId}.", id);
+                return StatusCode(500, "Internal server error.");
+            }
         }
     }
 }

@@ -33,40 +33,68 @@ namespace FinancialManagerAPI.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
         {
-            var user = (await _unitOfWork.Users.FindAsync(u => u.Email == loginDto.Email)).FirstOrDefault();
-            if (user == null || !_passwordService.VerifyPassword(loginDto.Password, user.PasswordHash))
+            try
             {
-                return Unauthorized("Invalid email or password.");
+                _logger.LogInformation("Login attempt started for user {Email}.", loginDto.Email);
+
+                // Busca o usuário pelo email
+                var user = (await _unitOfWork.Users.FindAsync(u => u.Email == loginDto.Email)).FirstOrDefault();
+                if (user == null)
+                {
+                    _logger.LogWarning("Login failed: User with email {Email} not found.", loginDto.Email);
+                    return Unauthorized("Invalid email or password.");
+                }
+
+                // Verifica a senha
+                if (!_passwordService.VerifyPassword(loginDto.Password, user.PasswordHash))
+                {
+                    _logger.LogWarning("Login failed: Incorrect password for user {Email}.", loginDto.Email);
+                    return Unauthorized("Invalid email or password.");
+                }
+
+                // Gera o token JWT
+                var token = GenerateJwtToken(user);
+
+                _logger.LogInformation("User {Email} logged in successfully.", loginDto.Email);
+
+                return Ok(new { Token = token });
             }
-
-            var token = GenerateJwtToken(user);
-
-            _logger.LogInformation($"User {loginDto.Email} logged in successfully.");
-
-            return Ok(new { Token = token });
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while processing the login for user {Email}.", loginDto.Email);
+                return StatusCode(500, "Internal server error.");
+            }
         }
 
         private string GenerateJwtToken(User user)
         {
-            var claims = new[]
+            try
             {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Name),
-                new Claim(ClaimTypes.Email, user.Email)
-            };
+                var claims = new[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                    new Claim(ClaimTypes.Name, user.Name),
+                    new Claim(ClaimTypes.Email, user.Email)
+                };
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+                var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var token = new JwtSecurityToken(
-                issuer: _configuration["Jwt:Issuer"],
-                audience: _configuration["Jwt:Issuer"],
-                claims: claims,
-                expires: DateTime.Now.AddMinutes(60),
-                signingCredentials: creds
-            );
+                var token = new JwtSecurityToken(
+                    issuer: _configuration["Jwt:Issuer"],
+                    audience: _configuration["Jwt:Issuer"],
+                    claims: claims,
+                    expires: DateTime.Now.AddMinutes(60),
+                    signingCredentials: creds
+                );
 
-            return new JwtSecurityTokenHandler().WriteToken(token);
+                return new JwtSecurityTokenHandler().WriteToken(token);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while generating JWT token for user {UserId}.", user.Id);
+                throw;
+            }
         }
     }
 }
