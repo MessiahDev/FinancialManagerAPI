@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using FinancialManagerAPI.Data.UnitOfWork;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -37,7 +39,6 @@ namespace FinancialManagerAPI.Controllers
             {
                 _logger.LogInformation("Login attempt started for user {Email}.", loginDto.Email);
 
-                // Busca o usuário pelo email
                 var user = (await _unitOfWork.Users.FindAsync(u => u.Email == loginDto.Email)).FirstOrDefault();
                 if (user == null)
                 {
@@ -45,23 +46,58 @@ namespace FinancialManagerAPI.Controllers
                     return Unauthorized("Invalid email or password.");
                 }
 
-                // Verifica a senha
                 if (!_passwordService.VerifyPassword(loginDto.Password, user.PasswordHash))
                 {
                     _logger.LogWarning("Login failed: Incorrect password for user {Email}.", loginDto.Email);
                     return Unauthorized("Invalid email or password.");
                 }
 
-                // Gera o token JWT
                 var token = GenerateJwtToken(user);
+
+                var claims = new[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                    new Claim(ClaimTypes.Name, user.Name),
+                    new Claim(ClaimTypes.Email, user.Email)
+                };
+
+                var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+
+                var authProperties = new AuthenticationProperties
+                {
+                    IsPersistent = true,
+                    ExpiresUtc = DateTime.UtcNow.AddMinutes(60)
+                };
+
+                await HttpContext.SignInAsync(
+                    CookieAuthenticationDefaults.AuthenticationScheme,
+                    new ClaimsPrincipal(claimsIdentity),
+                    authProperties
+                );
 
                 _logger.LogInformation("User {Email} logged in successfully.", loginDto.Email);
 
-                return Ok(new { Token = token });
+                return Ok(new { Token = token, Message = "Login successful." });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occurred while processing the login for user {Email}.", loginDto.Email);
+                return StatusCode(500, "Internal server error.");
+            }
+        }
+
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
+        {
+            try
+            {
+                await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                _logger.LogInformation("User logged out successfully.");
+                return Ok(new { Message = "Logout successful." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred during logout.");
                 return StatusCode(500, "Internal server error.");
             }
         }
