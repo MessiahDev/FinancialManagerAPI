@@ -46,7 +46,7 @@ namespace FinancialManagerAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while creating expense.");
+                _logger.LogError(ex.Message, "An error occurred while creating expense.");
                 return StatusCode(500, "Internal server error.");
             }
         }
