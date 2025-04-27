@@ -8,6 +8,7 @@ using System.Security.Claims;
 using System.Text;
 using FinancialManagerAPI.DTOs;
 using FinancialManagerAPI.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace FinancialManagerAPI.Controllers
 {
@@ -83,6 +84,41 @@ namespace FinancialManagerAPI.Controllers
             {
                 _logger.LogError(ex, "An error occurred while processing the login for user {Email}.", loginDto.Email);
                 return StatusCode(500, "Internal server error.");
+            }
+        }
+
+        [Authorize]
+        [HttpGet("profile")]
+        public async Task<IActionResult> GetProfile()
+        {
+            try
+            {
+                var userIdClaim = HttpContext.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+                if (userIdClaim == null)
+                {
+                    return Unauthorized("Usuário não autenticado.");
+                }
+
+                var userId = int.Parse(userIdClaim.Value);
+
+                var user = await _unitOfWork.Users.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    return NotFound("Usuário não encontrado.");
+                }
+
+                return Ok(new
+                {
+                    user.Id,
+                    user.Name,
+                    user.Email,
+                    user.Role
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao obter o perfil do usuário.");
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
 

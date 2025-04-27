@@ -92,6 +92,30 @@ namespace FinancialManagerAPI.Controllers
             }
         }
 
+        [HttpGet("user/{userId}")]
+        public async Task<IActionResult> GetByUserId(int userId)
+        {
+            try
+            {
+                var categories = await _unitOfWork.Categories.FindAsync(c => c.UserId == userId);
+
+                if (!categories.Any())
+                {
+                    _logger.LogWarning($"No categories found for user with ID {userId}. Returning an empty list.");
+                    return Ok(new List<CategoryDto>());
+                }
+
+                var categoriesDto = _mapper.Map<IEnumerable<CategoryDto>>(categories);
+
+                return Ok(categoriesDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching categories for user with ID {UserId}.", userId);
+                return StatusCode(500, "Internal server error.");
+            }
+        }
+
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateCategoryDto updateCategoryDto)
         {
