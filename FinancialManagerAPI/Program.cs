@@ -51,29 +51,24 @@ builder.Services.AddSwaggerGen(c =>
                     Id = "Bearer"
                 }
             },
-            new string[] {}
+            Array.Empty<string>()
         }
     });
 });
 
-string? mySqlConnection = builder.Configuration.GetConnectionString("DefaultConnection");
+string? connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
+
+string jwtKey = Environment.GetEnvironmentVariable("Jwt__Key")
+    ?? builder.Configuration["Jwt:Key"];
+
+string jwtIssuer = Environment.GetEnvironmentVariable("Jwt__Issuer")
+    ?? builder.Configuration["Jwt:Issuer"];
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    try
-    {
-        options.UseMySql(mySqlConnection, ServerVersion.AutoDetect(mySqlConnection));
-    }
-    catch (Exception ex)
-    {
-        builder.Logging.AddConsole();
-        builder.Logging.AddDebug();
-        throw;
-    }
+    options.UseNpgsql(connectionString);
 });
-
-var key = builder.Configuration["Jwt:Key"];
-var issuer = builder.Configuration["Jwt:Issuer"];
 
 builder.Services.AddAuthentication(options =>
 {
@@ -88,16 +83,16 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = issuer,
-        ValidAudience = issuer,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtIssuer,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
     };
 
     options.Events = new JwtBearerEvents
     {
         OnAuthenticationFailed = context =>
         {
-            if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
+            if (context.Exception is SecurityTokenExpiredException)
             {
                 context.Response.Headers.Add("Token-Expired", "true");
             }
@@ -134,9 +129,9 @@ builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
-        builder => builder.AllowAnyOrigin()
-                        .AllowAnyMethod()
-                        .AllowAnyHeader());
+        b => b.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader());
 });
 
 var app = builder.Build();
@@ -148,12 +143,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseCors("AllowAll");
-
 app.MapControllers();
-
 app.Run();

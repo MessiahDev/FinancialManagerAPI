@@ -5,7 +5,7 @@
 namespace FinancialManagerAPI.Migrations
 {
     /// <inheritdoc />
-    public partial class MigacaoInicial : Migration
+    public partial class MigrandoParaRender : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
