@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using FinancialManagerAPI.Data.UnitOfWork;
+using FinancialManagerAPI.DTOs.ExpenseDTOs;
 using FinancialManagerAPI.DTOs.RevenueDTOs;
 using FinancialManagerAPI.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -85,6 +86,23 @@ namespace FinancialManagerAPI.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occurred while fetching revenue with ID {RevenueId}.", id);
+                return StatusCode(500, "Internal server error.");
+            }
+        }
+
+        [HttpGet("user/{userId}")]
+        public async Task<IActionResult> GetByUserId(int userId)
+        {
+            try
+            {
+                var revenues = await _unitOfWork.Revenues.FindAsync(e => e.UserId == userId);
+
+                var revenueDtos = _mapper.Map<IEnumerable<RevenueDto>>(revenues);
+                return Ok(revenueDtos ?? new List<RevenueDto>());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching expenses for user with ID {UserId}.", userId);
                 return StatusCode(500, "Internal server error.");
             }
         }

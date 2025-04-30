@@ -67,6 +67,23 @@ namespace FinancialManagerAPI.Controllers
             }
         }
 
+        [HttpGet("user/{userId}")]
+        public async Task<IActionResult> GetByUserId(int userId)
+        {
+            try
+            {
+                var expenses = await _unitOfWork.Expenses.FindAsync(e => e.UserId == userId);
+
+                var expensesDto = _mapper.Map<IEnumerable<ExpenseDto>>(expenses);
+                return Ok(expensesDto ?? new List<ExpenseDto>());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching expenses for user with ID {UserId}.", userId);
+                return StatusCode(500, "Internal server error.");
+            }
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetExpenseById(int id)
         {

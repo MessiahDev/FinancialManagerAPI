@@ -21,6 +21,10 @@ namespace FinancialManagerAPI.Models
 
         [ForeignKey("Category")]
         public int CategoryId { get; set; }
+
+        [Required]
+        [MaxLength(200)]
+        public string? CategoryName { get; set; }
         public Category? Category { get; set; }
 
         [ForeignKey("User")]

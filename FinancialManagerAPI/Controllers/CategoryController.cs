@@ -31,7 +31,7 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
-                var existingCategory = await _unitOfWork.Categories.FindFirstOrDefaultAsync(c => c.Name == createCategoryDto.Name);
+                var existingCategory = await _unitOfWork.Categories.FindFirstOrDefaultAsync(c => c.Name == createCategoryDto.Name && c.Id == createCategoryDto.UserId);
                 if (existingCategory != null)
                 {
                     _logger.LogWarning("Category name {CategoryName} already in use.", createCategoryDto.Name);
