@@ -1,7 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using FinancialManagerAPI.Data.UnitOfWork;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -41,40 +39,13 @@ namespace FinancialManagerAPI.Controllers
                 _logger.LogInformation("Login attempt started for user {Email}.", loginDto.Email);
 
                 var user = (await _unitOfWork.Users.FindAsync(u => u.Email == loginDto.Email)).FirstOrDefault();
-                if (user == null)
+                if (user == null || !_passwordService.VerifyPassword(loginDto.Password, user.PasswordHash))
                 {
-                    _logger.LogWarning("Login failed: User with email {Email} not found.", loginDto.Email);
-                    return Unauthorized("Invalid email or password.");
-                }
-
-                if (!_passwordService.VerifyPassword(loginDto.Password, user.PasswordHash))
-                {
-                    _logger.LogWarning("Login failed: Incorrect password for user {Email}.", loginDto.Email);
+                    _logger.LogWarning("Login failed for user {Email}.", loginDto.Email);
                     return Unauthorized("Invalid email or password.");
                 }
 
                 var token = GenerateJwtToken(user);
-
-                var claims = new[]
-                {
-                    new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                    new Claim(ClaimTypes.Name, user.Name),
-                    new Claim(ClaimTypes.Email, user.Email)
-                };
-
-                var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-
-                var authProperties = new AuthenticationProperties
-                {
-                    IsPersistent = true,
-                    ExpiresUtc = DateTime.UtcNow.AddMinutes(60)
-                };
-
-                await HttpContext.SignInAsync(
-                    CookieAuthenticationDefaults.AuthenticationScheme,
-                    new ClaimsPrincipal(claimsIdentity),
-                    authProperties
-                );
 
                 _logger.LogInformation("User {Email} logged in successfully.", loginDto.Email);
 
@@ -100,8 +71,8 @@ namespace FinancialManagerAPI.Controllers
                 }
 
                 var userId = int.Parse(userIdClaim.Value);
-
                 var user = await _unitOfWork.Users.GetByIdAsync(userId);
+
                 if (user == null)
                 {
                     return NotFound("Usuário não encontrado.");
@@ -122,32 +93,21 @@ namespace FinancialManagerAPI.Controllers
             }
         }
 
-        [HttpPost("logout")]
-        public async Task<IActionResult> Logout()
-        {
-            try
-            {
-                await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-                _logger.LogInformation("User logged out successfully.");
-                return Ok(new { Message = "Logout successful." });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred during logout.");
-                return StatusCode(500, "Internal server error.");
-            }
-        }
-
         private string GenerateJwtToken(User user)
         {
             try
             {
-                var claims = new[]
+                var claims = new List<Claim>
                 {
                     new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                     new Claim(ClaimTypes.Name, user.Name),
                     new Claim(ClaimTypes.Email, user.Email)
                 };
+
+                if (!string.IsNullOrEmpty(user.Role))
+                {
+                    claims.Add(new Claim(ClaimTypes.Role, user.Role));
+                }
 
                 var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
                 var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

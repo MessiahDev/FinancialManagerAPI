@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FinancialManagerAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250430044923_MigrandoParaPostgree")]
-    partial class MigrandoParaPostgree
+    [Migration("20250430235752_MingrandoParaPostgres")]
+    partial class MingrandoParaPostgres
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

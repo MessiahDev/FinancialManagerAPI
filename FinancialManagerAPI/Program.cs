@@ -2,7 +2,6 @@ using FinancialManagerAPI.Data;
 using FinancialManagerAPI.Data.Repositories;
 using FinancialManagerAPI.Data.UnitOfWork;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -14,15 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
-
-if (builder.Environment.IsProduction())
-{
-    builder.Logging.SetMinimumLevel(LogLevel.Error);
-}
-else
-{
-    builder.Logging.SetMinimumLevel(LogLevel.Information);
-}
+builder.Logging.SetMinimumLevel(builder.Environment.IsProduction() ? LogLevel.Error : LogLevel.Information);
 
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
@@ -109,15 +100,6 @@ builder.Services.AddAuthentication(options =>
             return Task.CompletedTask;
         }
     };
-})
-.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
-{
-    options.LoginPath = "/api/auth/login";
-    options.LogoutPath = "/api/auth/logout";
-    options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
-    options.SlidingExpiration = true;
-    options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 });
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -141,8 +123,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+else
+{
+    app.UseHttpsRedirection();
+}
 
-app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();

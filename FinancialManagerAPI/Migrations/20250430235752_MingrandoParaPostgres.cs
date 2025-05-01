@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FinancialManagerAPI.Migrations
 {
     /// <inheritdoc />
-    public partial class MigrandoParaPostgree : Migration
+    public partial class MingrandoParaPostgres : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
