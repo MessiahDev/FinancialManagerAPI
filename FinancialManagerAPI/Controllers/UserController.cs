@@ -113,11 +113,15 @@ namespace FinancialManagerAPI.Controllers
 
                 _mapper.Map(updateDto, existingUser);
 
+                if (!string.IsNullOrWhiteSpace(updateDto.Password))
+                {
+                    existingUser.PasswordHash = _passwordService.HashPassword(updateDto.Password);
+                }
+
                 _unitOfWork.Users.Update(existingUser);
                 await _unitOfWork.CommitAsync();
 
                 _logger.LogInformation($"User {id} updated successfully.");
-
                 return Ok(new { Message = $"User {id} updated successfully." });
             }
             catch (Exception ex)
