@@ -33,21 +33,21 @@ namespace FinancialManagerAPI.Controllers
             {
                 if (createDebtDto == null)
                 {
-                    _logger.LogWarning("Debt data is required.");
-                    return BadRequest("Debt data is required.");
+                    _logger.LogWarning("Os dados da dívida são obrigatórios.");
+                    return BadRequest("Os dados da dívida são obrigatórios.");
                 }
 
                 var debt = _mapper.Map<Debt>(createDebtDto);
                 _unitOfWork.Debts.Add(debt);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"Debt {debt.Description} created successfully.");
+                _logger.LogInformation($"Dívida '{debt.Description}' criada com sucesso.");
                 return CreatedAtAction(nameof(GetDebtById), new { id = debt.Id }, debt);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while creating debt.");
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao criar a dívida.");
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
 
@@ -62,8 +62,8 @@ namespace FinancialManagerAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while fetching all debts.");
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao buscar todas as dívidas.");
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
 
@@ -75,7 +75,7 @@ namespace FinancialManagerAPI.Controllers
                 var debt = await _unitOfWork.Debts.GetByIdAsync(id);
                 if (debt == null)
                 {
-                    _logger.LogWarning($"Debt with ID {id} not found.");
+                    _logger.LogWarning($"Dívida com ID {id} não encontrada.");
                     return NotFound();
                 }
 
@@ -84,8 +84,8 @@ namespace FinancialManagerAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while fetching debt with ID {DebtId}.", id);
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao buscar a dívida com ID {DebtId}.", id);
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
 
@@ -97,7 +97,7 @@ namespace FinancialManagerAPI.Controllers
                 var existingDebt = await _unitOfWork.Debts.GetByIdAsync(id);
                 if (existingDebt == null)
                 {
-                    _logger.LogWarning($"Debt with ID {id} not found.");
+                    _logger.LogWarning($"Dívida com ID {id} não encontrada.");
                     return NotFound();
                 }
 
@@ -105,13 +105,13 @@ namespace FinancialManagerAPI.Controllers
                 _unitOfWork.Debts.Update(existingDebt);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"Debt {id} updated successfully.");
+                _logger.LogInformation($"Dívida {id} atualizada com sucesso.");
                 return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while updating debt with ID {DebtId}.", id);
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao atualizar a dívida com ID {DebtId}.", id);
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
 
@@ -123,20 +123,20 @@ namespace FinancialManagerAPI.Controllers
                 var debt = await _unitOfWork.Debts.GetByIdAsync(id);
                 if (debt == null)
                 {
-                    _logger.LogWarning($"Debt with ID {id} not found.");
+                    _logger.LogWarning($"Dívida com ID {id} não encontrada.");
                     return NotFound();
                 }
 
                 _unitOfWork.Debts.Remove(debt);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"Debt {id} deleted successfully.");
+                _logger.LogInformation($"Dívida {id} deletada com sucesso.");
                 return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while deleting debt with ID {DebtId}.", id);
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao deletar a dívida com ID {DebtId}.", id);
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
     }

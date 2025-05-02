@@ -1,6 +1,5 @@
 ﻿using AutoMapper;
 using FinancialManagerAPI.Data.UnitOfWork;
-using FinancialManagerAPI.DTOs;
 using FinancialManagerAPI.DTOs.UserDTOs;
 using FinancialManagerAPI.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -14,7 +13,6 @@ namespace FinancialManagerAPI.Controllers
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-        private readonly AuthService _authService;
         private readonly PasswordService _passwordService;
         private readonly ILogger<UserController> _logger;
 
@@ -28,7 +26,6 @@ namespace FinancialManagerAPI.Controllers
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _passwordService = passwordService;
-            _authService = authService;
             _logger = logger;
         }
 
@@ -40,8 +37,8 @@ namespace FinancialManagerAPI.Controllers
                 var existingUser = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == registerDto.Email);
                 if (existingUser != null)
                 {
-                    _logger.LogWarning($"Email {registerDto.Email} is already in use.");
-                    return BadRequest("Email already in use.");
+                    _logger.LogWarning($"O email {registerDto.Email} já está em uso.");
+                    return BadRequest("Este email já está em uso.");
                 }
 
                 var hashedPassword = _passwordService.HashPassword(registerDto.Password);
@@ -56,45 +53,14 @@ namespace FinancialManagerAPI.Controllers
                 _unitOfWork.Users.Add(user);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"User {registerDto.Name} registered successfully. Email: {registerDto.Email}");
+                _logger.LogInformation($"Usuário {registerDto.Name} cadastrado com sucesso. Email: {registerDto.Email}");
 
-                return Ok("User registered successfully!");
+                return Ok("Usuário cadastrado com sucesso!");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while registering the user.");
-                return StatusCode(500, "Internal server error.");
-            }
-        }
-
-        [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
-        {
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-
-                var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == loginDto.Email);
-
-                if (user == null || !_passwordService.VerifyPassword(loginDto.Password, user.PasswordHash))
-                {
-                    _logger.LogWarning($"Failed login attempt for email: {loginDto.Email}");
-                    return Unauthorized("Invalid credentials.");
-                }
-
-                var token = _authService.GenerateToken(user.Email, user.Id.ToString(), user.Role);
-
-                _logger.LogInformation($"User {user.Email} (ID: {user.Id}) logged in successfully.");
-
-                return Ok(new { Token = token });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"An error occurred during login: {ex.Message}");
-                return StatusCode(500, "Internal server error");
+                _logger.LogError(ex, "Ocorreu um erro ao cadastrar o usuário.");
+                return StatusCode(500, "Erro interno no servidor.");
             }
         }
 
@@ -107,7 +73,7 @@ namespace FinancialManagerAPI.Controllers
                 var existingUser = await _unitOfWork.Users.GetByIdAsync(id);
                 if (existingUser == null)
                 {
-                    _logger.LogWarning($"User with ID {id} not found.");
+                    _logger.LogWarning($"Usuário com ID {id} não encontrado.");
                     return NotFound();
                 }
 
@@ -121,13 +87,13 @@ namespace FinancialManagerAPI.Controllers
                 _unitOfWork.Users.Update(existingUser);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"User {id} updated successfully.");
-                return Ok(new { Message = $"User {id} updated successfully." });
+                _logger.LogInformation($"Usuário {id} atualizado com sucesso.");
+                return Ok(new { Message = $"Usuário {id} atualizado com sucesso." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while updating user.");
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao atualizar o usuário.");
+                return StatusCode(500, "Erro interno no servidor.");
             }
         }
 
@@ -140,21 +106,21 @@ namespace FinancialManagerAPI.Controllers
                 var user = await _unitOfWork.Users.GetByIdAsync(id);
                 if (user == null)
                 {
-                    _logger.LogWarning($"User with ID {id} not found.");
+                    _logger.LogWarning($"Usuário com ID {id} não encontrado.");
                     return NotFound();
                 }
 
                 _unitOfWork.Users.Remove(user);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"User {id} deleted successfully.");
+                _logger.LogInformation($"Usuário {id} excluído com sucesso.");
 
-                return Ok(new { Message = $"User {id} deleted successfully." });
+                return Ok(new { Message = $"Usuário {id} excluído com sucesso." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while deleting user.");
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao excluir o usuário.");
+                return StatusCode(500, "Erro interno no servidor.");
             }
         }
 
@@ -170,8 +136,8 @@ namespace FinancialManagerAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while fetching all users.");
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao buscar todos os usuários.");
+                return StatusCode(500, "Erro interno no servidor.");
             }
         }
 
@@ -184,7 +150,7 @@ namespace FinancialManagerAPI.Controllers
                 var user = await _unitOfWork.Users.GetByIdAsync(id);
                 if (user == null)
                 {
-                    _logger.LogWarning($"User with ID {id} not found.");
+                    _logger.LogWarning($"Usuário com ID {id} não encontrado.");
                     return NotFound();
                 }
 
@@ -193,8 +159,8 @@ namespace FinancialManagerAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while fetching user with ID {UserId}.", id);
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao buscar o usuário com ID {UserId}.", id);
+                return StatusCode(500, "Erro interno no servidor.");
             }
         }
     }

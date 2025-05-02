@@ -1,6 +1,5 @@
 ﻿using AutoMapper;
 using FinancialManagerAPI.Data.UnitOfWork;
-using FinancialManagerAPI.DTOs.ExpenseDTOs;
 using FinancialManagerAPI.DTOs.RevenueDTOs;
 using FinancialManagerAPI.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -34,21 +33,21 @@ namespace FinancialManagerAPI.Controllers
             {
                 if (createRevenueDto == null)
                 {
-                    _logger.LogWarning("Revenue data is required.");
-                    return BadRequest("Revenue data is required.");
+                    _logger.LogWarning("Os dados da receita são obrigatórios.");
+                    return BadRequest("Os dados da receita são obrigatórios.");
                 }
 
                 var revenue = _mapper.Map<Revenue>(createRevenueDto);
                 _unitOfWork.Revenues.Add(revenue);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"Revenue {revenue.Description} created successfully.");
+                _logger.LogInformation($"Receita '{revenue.Description}' criada com sucesso.");
                 return CreatedAtAction(nameof(GetRevenueById), new { id = revenue.Id }, revenue);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while creating revenue.");
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao criar a receita.");
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
 
@@ -63,8 +62,8 @@ namespace FinancialManagerAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while fetching all revenues.");
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao buscar todas as receitas.");
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
 
@@ -76,7 +75,7 @@ namespace FinancialManagerAPI.Controllers
                 var revenue = await _unitOfWork.Revenues.GetByIdAsync(id);
                 if (revenue == null)
                 {
-                    _logger.LogWarning($"Revenue with ID {id} not found.");
+                    _logger.LogWarning($"Receita com ID {id} não encontrada.");
                     return NotFound();
                 }
 
@@ -85,8 +84,8 @@ namespace FinancialManagerAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while fetching revenue with ID {RevenueId}.", id);
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao buscar a receita com ID {RevenueId}.", id);
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
 
@@ -96,14 +95,13 @@ namespace FinancialManagerAPI.Controllers
             try
             {
                 var revenues = await _unitOfWork.Revenues.FindAsync(e => e.UserId == userId);
-
                 var revenueDtos = _mapper.Map<IEnumerable<RevenueDto>>(revenues);
                 return Ok(revenueDtos ?? new List<RevenueDto>());
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while fetching expenses for user with ID {UserId}.", userId);
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao buscar as receitas do usuário com ID {UserId}.", userId);
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
 
@@ -115,7 +113,7 @@ namespace FinancialManagerAPI.Controllers
                 var existingRevenue = await _unitOfWork.Revenues.GetByIdAsync(id);
                 if (existingRevenue == null)
                 {
-                    _logger.LogWarning($"Revenue with ID {id} not found.");
+                    _logger.LogWarning($"Receita com ID {id} não encontrada.");
                     return NotFound();
                 }
 
@@ -123,13 +121,13 @@ namespace FinancialManagerAPI.Controllers
                 _unitOfWork.Revenues.Update(existingRevenue);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"Revenue {id} updated successfully.");
+                _logger.LogInformation($"Receita {id} atualizada com sucesso.");
                 return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while updating revenue with ID {RevenueId}.", id);
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao atualizar a receita com ID {RevenueId}.", id);
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
 
@@ -141,20 +139,20 @@ namespace FinancialManagerAPI.Controllers
                 var revenue = await _unitOfWork.Revenues.GetByIdAsync(id);
                 if (revenue == null)
                 {
-                    _logger.LogWarning($"Revenue with ID {id} not found.");
+                    _logger.LogWarning($"Receita com ID {id} não encontrada.");
                     return NotFound();
                 }
 
                 _unitOfWork.Revenues.Remove(revenue);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"Revenue {id} deleted successfully.");
+                _logger.LogInformation($"Receita {id} deletada com sucesso.");
                 return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while deleting revenue with ID {RevenueId}.", id);
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao deletar a receita com ID {RevenueId}.", id);
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
     }

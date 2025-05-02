@@ -34,22 +34,22 @@ namespace FinancialManagerAPI.Controllers
                 var existingCategory = await _unitOfWork.Categories.FindFirstOrDefaultAsync(c => c.Name == createCategoryDto.Name && c.Id == createCategoryDto.UserId);
                 if (existingCategory != null)
                 {
-                    _logger.LogWarning("Category name {CategoryName} already in use.", createCategoryDto.Name);
-                    return BadRequest("Category name already in use.");
+                    _logger.LogWarning("Nome da categoria {CategoryName} já está em uso.", createCategoryDto.Name);
+                    return BadRequest("Nome da categoria já está em uso.");
                 }
 
                 var category = _mapper.Map<Category>(createCategoryDto);
                 _unitOfWork.Categories.Add(category);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"Category {category.Name} created successfully.");
+                _logger.LogInformation($"Categoria {category.Name} criada com sucesso.");
 
                 return CreatedAtAction(nameof(GetById), new { id = category.Id }, category);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while creating category {CategoryName}.", createCategoryDto.Name);
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao criar a categoria {CategoryName}.", createCategoryDto.Name);
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
 
@@ -65,8 +65,8 @@ namespace FinancialManagerAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while fetching categories.");
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao buscar as categorias.");
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
 
@@ -78,7 +78,7 @@ namespace FinancialManagerAPI.Controllers
                 var category = await _unitOfWork.Categories.GetByIdAsync(id);
                 if (category == null)
                 {
-                    _logger.LogWarning($"Category with ID {id} not found.");
+                    _logger.LogWarning($"Categoria com ID {id} não encontrada.");
                     return NotFound();
                 }
 
@@ -87,8 +87,8 @@ namespace FinancialManagerAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while fetching category with ID {CategoryId}.", id);
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao buscar a categoria com ID {CategoryId}.", id);
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
 
@@ -101,7 +101,7 @@ namespace FinancialManagerAPI.Controllers
 
                 if (!categories.Any())
                 {
-                    _logger.LogWarning($"No categories found for user with ID {userId}. Returning an empty list.");
+                    _logger.LogWarning($"Nenhuma categoria encontrada para o usuário com ID {userId}. Retornando uma lista vazia.");
                     return Ok(new List<CategoryDto>());
                 }
 
@@ -111,8 +111,8 @@ namespace FinancialManagerAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while fetching categories for user with ID {UserId}.", userId);
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao buscar categorias para o usuário com ID {UserId}.", userId);
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
 
@@ -124,7 +124,7 @@ namespace FinancialManagerAPI.Controllers
                 var existingCategory = await _unitOfWork.Categories.GetByIdAsync(id);
                 if (existingCategory == null)
                 {
-                    _logger.LogWarning($"Category with ID {id} not found.");
+                    _logger.LogWarning($"Categoria com ID {id} não encontrada.");
                     return NotFound();
                 }
 
@@ -133,14 +133,14 @@ namespace FinancialManagerAPI.Controllers
                 _unitOfWork.Categories.Update(existingCategory);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"Category {id} updated successfully.");
+                _logger.LogInformation($"Categoria {id} atualizada com sucesso.");
 
                 return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while updating category with ID {CategoryId}.", id);
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao atualizar a categoria com ID {CategoryId}.", id);
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
 
@@ -152,21 +152,21 @@ namespace FinancialManagerAPI.Controllers
                 var category = await _unitOfWork.Categories.GetByIdAsync(id);
                 if (category == null)
                 {
-                    _logger.LogWarning($"Category with ID {id} not found.");
+                    _logger.LogWarning($"Categoria com ID {id} não encontrada.");
                     return NotFound();
                 }
 
                 _unitOfWork.Categories.Remove(category);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"Category {id} deleted successfully.");
+                _logger.LogInformation($"Categoria {id} deletada com sucesso.");
 
                 return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while deleting category with ID {CategoryId}.", id);
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao deletar a categoria com ID {CategoryId}.", id);
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
     }

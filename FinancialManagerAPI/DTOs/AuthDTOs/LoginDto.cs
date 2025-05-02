@@ -1,4 +1,4 @@
-﻿namespace FinancialManagerAPI.DTOs
+﻿namespace FinancialManagerAPI.DTOs.AuthDTOs
 {
     public class LoginDto
     {

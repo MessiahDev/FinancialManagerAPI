@@ -1,6 +1,7 @@
 using FinancialManagerAPI.Data;
 using FinancialManagerAPI.Data.Repositories;
 using FinancialManagerAPI.Data.UnitOfWork;
+using FinancialManagerAPI.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -107,6 +108,7 @@ builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<PasswordService>();
 builder.Services.AddAutoMapper(typeof(Program));
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 builder.Services.AddCors(options =>
 {

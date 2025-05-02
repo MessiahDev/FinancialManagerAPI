@@ -4,9 +4,10 @@ using FinancialManagerAPI.Data.UnitOfWork;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using FinancialManagerAPI.DTOs;
 using FinancialManagerAPI.Models;
 using Microsoft.AspNetCore.Authorization;
+using FinancialManagerAPI.DTOs.AuthDTOs;
+using FinancialManagerAPI.Services;
 
 namespace FinancialManagerAPI.Controllers
 {
@@ -18,17 +19,93 @@ namespace FinancialManagerAPI.Controllers
         private readonly PasswordService _passwordService;
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
+        private readonly IEmailService _emailService;
 
         public AuthController(
             IUnitOfWork unitOfWork,
             PasswordService passwordService,
             IConfiguration configuration,
-            ILogger<AuthController> logger)
+            ILogger<AuthController> logger,
+            IEmailService emailService)
         {
             _unitOfWork = unitOfWork;
             _passwordService = passwordService;
             _configuration = configuration;
             _logger = logger;
+            _emailService = emailService;
+        }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPassword request)
+        {
+            var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == request.Email);
+            if (user == null)
+                return NotFound("E-mail não encontrado.");
+
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim("PasswordReset", "true")
+            };
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var expires = DateTime.UtcNow.AddMinutes(30);
+
+            var token = new JwtSecurityToken(
+                claims: claims,
+                expires: expires,
+                signingCredentials: creds
+            );
+
+            var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+            var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_BASE_URL");
+
+            if (string.IsNullOrEmpty(frontendUrl))
+            {
+                frontendUrl = "https://localhost:5173";
+            }
+
+            var resetLink = $"{frontendUrl}/redefinir-senha?token={tokenString}";
+
+            await _emailService.SendEmailAsync(user.Email, "Redefinição de senha", $"Clique no link para redefinir sua senha: {resetLink}");
+
+            return Ok("Link de redefinição enviado para o e-mail.");
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPassword request)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]);
+
+            try
+            {
+                var principal = tokenHandler.ValidateToken(request.Token, new TokenValidationParameters
+                {
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    ValidateLifetime = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ValidateIssuerSigningKey = true
+                }, out SecurityToken validatedToken);
+
+                var jwtToken = (JwtSecurityToken)validatedToken;
+                var email = jwtToken.Claims.First(x => x.Type == ClaimTypes.Email).Value;
+
+                var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == email);
+                if (user == null)
+                    return NotFound("Usuário não encontrado.");
+
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+                await _unitOfWork.CommitAsync();
+
+                return Ok("Senha redefinida com sucesso.");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Token inválido ou expirado: {ex.Message}");
+            }
         }
 
         [HttpPost("login")]
@@ -36,25 +113,25 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
-                _logger.LogInformation("Login attempt started for user {Email}.", loginDto.Email);
+                _logger.LogInformation("Tentativa de login iniciada para o usuário {Email}.", loginDto.Email);
 
                 var user = (await _unitOfWork.Users.FindAsync(u => u.Email == loginDto.Email)).FirstOrDefault();
                 if (user == null || !_passwordService.VerifyPassword(loginDto.Password, user.PasswordHash))
                 {
-                    _logger.LogWarning("Login failed for user {Email}.", loginDto.Email);
-                    return Unauthorized("Invalid email or password.");
+                    _logger.LogWarning("Falha no login para o usuário {Email}.", loginDto.Email);
+                    return Unauthorized("E-mail ou senha inválidos.");
                 }
 
                 var token = GenerateJwtToken(user);
 
-                _logger.LogInformation("User {Email} logged in successfully.", loginDto.Email);
+                _logger.LogInformation("Usuário {Email} logado com sucesso.", loginDto.Email);
 
-                return Ok(new { Token = token, Message = "Login successful." });
+                return Ok(new { Token = token, Message = "Login bem-sucedido." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while processing the login for user {Email}.", loginDto.Email);
-                return StatusCode(500, "Internal server error.");
+                _logger.LogError(ex, "Ocorreu um erro ao processar o login para o usuário {Email}.", loginDto.Email);
+                return StatusCode(500, "Erro interno do servidor.");
             }
         }
 
@@ -124,7 +201,7 @@ namespace FinancialManagerAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while generating JWT token for user {UserId}.", user.Id);
+                _logger.LogError(ex, "Erro ao gerar o token JWT para o usuário {UserId}.", user.Id);
                 throw;
             }
         }
