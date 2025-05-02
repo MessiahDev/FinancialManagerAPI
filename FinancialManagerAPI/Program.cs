@@ -129,8 +129,8 @@ else
 }
 
 app.UseCors("AllowAll");
+app.MapControllers();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
 app.Run();
