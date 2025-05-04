@@ -110,12 +110,19 @@ builder.Services.AddScoped<PasswordService>();
 builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        b => b.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader());
+    options.AddPolicy(name: MyAllowSpecificOrigins,
+        policy =>
+        {
+            policy.WithOrigins(
+                "https://financial-manager-psi.vercel.app"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+        });
 });
 
 var app = builder.Build();
