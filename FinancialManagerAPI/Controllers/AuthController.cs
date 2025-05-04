@@ -41,7 +41,7 @@ namespace FinancialManagerAPI.Controllers
         {
             _logger.LogInformation("Tentativa de registro para o usuário {Email}.", registerUserDto.Email);
 
-            var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == registerUserDto.Email).ConfigureAwait(false);
+            var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == registerUserDto.Email);
             if (user != null)
             {
                 _logger.LogWarning("Tentativa de registro falhada: já existe um usuário com o e-mail {Email}.", registerUserDto.Email);
@@ -56,7 +56,7 @@ namespace FinancialManagerAPI.Controllers
                 EmailConfirmed = false,
             };
 
-            var token = await GenerateEmailConfirmationToken(user);
+            var token = GenerateJwtToken(user);
             user.EmailConfirmationToken = token;
 
             _unitOfWork.Users.Add(user);
