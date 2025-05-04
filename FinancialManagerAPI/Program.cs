@@ -133,9 +133,11 @@ else
     app.UseHttpsRedirection();
 }
 
-app.UseCors("AllowAll");
-app.MapControllers();
+app.UseCors("AllowVercel");
+
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapControllers();
 
 app.Run();
