@@ -4,10 +4,11 @@ using FinancialManagerAPI.Data.UnitOfWork;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using FinancialManagerAPI.Models;
 using Microsoft.AspNetCore.Authorization;
 using FinancialManagerAPI.DTOs.AuthDTOs;
 using FinancialManagerAPI.Services;
+using FinancialManagerAPI.DTOs.UserDTOs;
+using System.Threading.Tasks;
 
 namespace FinancialManagerAPI.Controllers
 {
@@ -35,12 +36,114 @@ namespace FinancialManagerAPI.Controllers
             _emailService = emailService;
         }
 
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterUserDto registerUserDto)
+        {
+            _logger.LogInformation("Tentativa de registro para o usuário {Email}.", registerUserDto.Email);
+
+            var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == registerUserDto.Email).ConfigureAwait(false);
+            if (user != null)
+            {
+                _logger.LogWarning("Tentativa de registro falhada: já existe um usuário com o e-mail {Email}.", registerUserDto.Email);
+                return BadRequest("Usuário já existe com esse e-mail.");
+            }
+
+            user = new User
+            {
+                Name = registerUserDto.Name,
+                Email = registerUserDto.Email,
+                PasswordHash = _passwordService.HashPassword(registerUserDto.Password),
+                EmailConfirmed = false,
+            };
+
+            var token = await GenerateEmailConfirmationToken(user);
+            user.EmailConfirmationToken = token;
+
+            _unitOfWork.Users.Add(user);
+            await _unitOfWork.CommitAsync();
+
+            var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_BASE_URL") ?? "https://localhost:5173";
+            var confirmationLink = $"{frontendUrl}/confirmar-email?token={token}";
+
+            await _emailService.SendEmailAsync(user.Email, "Confirmação de Email", $"Clique no link para confirmar seu e-mail: {confirmationLink}");
+
+            _logger.LogInformation("Usuário {Email} registrado com sucesso. Link de confirmação enviado.", user.Email);
+
+            return Ok("Usuário registrado com sucesso. Verifique seu e-mail para confirmar.");
+        }
+
+        [HttpGet("confirm-email")]
+        public async Task<IActionResult> ConfirmEmail([FromQuery] string token)
+        {
+            _logger.LogInformation("Token recebido na URL: {Token}", token);
+
+            var allUsers = await _unitOfWork.Users.GetAllAsync();
+            foreach (var u in allUsers)
+            {
+                _logger.LogInformation("Usuário: {Email}, Token salvo: {SavedToken}", u.Email, u.EmailConfirmationToken);
+            }
+
+            var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.EmailConfirmationToken == token);
+            if (user == null)
+            {
+                _logger.LogWarning("Token de confirmação inválido ou expirado.");
+                return BadRequest("Token inválido ou expirado.");
+            }
+
+            user.EmailConfirmed = true;
+            user.EmailConfirmationToken = null;
+
+            _unitOfWork.Users.Update(user);
+            await _unitOfWork.CommitAsync();
+
+            _logger.LogInformation("E-mail para o usuário {Email} confirmado com sucesso.", user.Email);
+
+            return Ok("Email confirmado com sucesso!");
+        }
+
+        [HttpPost("resend-confirmation-email")]
+        public async Task<IActionResult> ResendEmailConfirmation([FromBody] string email)
+        {
+            _logger.LogInformation("Solicitação de reenvio de confirmação para o e-mail {Email}.", email);
+
+            var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == email);
+            if (user == null)
+            {
+                return NotFound("Usuário não encontrado.");
+            }
+
+            if (user.EmailConfirmed)
+            {
+                return BadRequest("Este e-mail já foi confirmado.");
+            }
+
+            var token = await GenerateEmailConfirmationToken(user);
+            user.EmailConfirmationToken = token;
+
+            _unitOfWork.Users.Update(user);
+            await _unitOfWork.CommitAsync();
+
+            var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_BASE_URL") ?? "https://localhost:5173";
+            var confirmationLink = $"{frontendUrl}/confirmar-email?token={token}";
+
+            await _emailService.SendEmailAsync(user.Email, "Confirmação de Email", $"Clique no link para confirmar seu e-mail: {confirmationLink}");
+
+            _logger.LogInformation("Link de confirmação reenviado para {Email}.", user.Email);
+
+            return Ok("Link de confirmação reenviado. Verifique seu e-mail.");
+        }
+
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPassword request)
         {
+            _logger.LogInformation("Solicitação de redefinição de senha recebida para o e-mail {Email}.", request.Email);
+
             var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == request.Email);
             if (user == null)
+            {
+                _logger.LogWarning("E-mail não encontrado {Email}.", request.Email);
                 return NotFound("E-mail não encontrado.");
+            }
 
             var claims = new List<Claim>
             {
@@ -70,12 +173,16 @@ namespace FinancialManagerAPI.Controllers
 
             await _emailService.SendEmailAsync(user.Email, "Redefinição de senha", $"Clique no link para redefinir sua senha: {resetLink}");
 
+            _logger.LogInformation("Link de redefinição de senha enviado para o e-mail {Email}.", user.Email);
+
             return Ok("Link de redefinição enviado para o e-mail.");
         }
 
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPassword request)
         {
+            _logger.LogInformation("Tentativa de redefinição de senha recebida com token {Token}.", request.Token);
+
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]);
 
@@ -95,15 +202,21 @@ namespace FinancialManagerAPI.Controllers
 
                 var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == email);
                 if (user == null)
+                {
+                    _logger.LogWarning("Usuário não encontrado para o e-mail {Email}.", email);
                     return NotFound("Usuário não encontrado.");
+                }
 
                 user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
                 await _unitOfWork.CommitAsync();
+
+                _logger.LogInformation("Senha redefinida com sucesso para o usuário {Email}.", email);
 
                 return Ok("Senha redefinida com sucesso.");
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Erro ao redefinir a senha com o token {Token}.", request.Token);
                 return BadRequest($"Token inválido ou expirado: {ex.Message}");
             }
         }
@@ -120,6 +233,12 @@ namespace FinancialManagerAPI.Controllers
                 {
                     _logger.LogWarning("Falha no login para o usuário {Email}.", loginDto.Email);
                     return Unauthorized("E-mail ou senha inválidos.");
+                }
+
+                if (!user.EmailConfirmed)
+                {
+                    _logger.LogWarning("Tentativa de login com e-mail não confirmado: {Email}.", loginDto.Email);
+                    return UnprocessableEntity("E-mail não confirmado. Verifique sua caixa de entrada.");
                 }
 
                 var token = GenerateJwtToken(user);
@@ -193,7 +312,7 @@ namespace FinancialManagerAPI.Controllers
                     issuer: _configuration["Jwt:Issuer"],
                     audience: _configuration["Jwt:Issuer"],
                     claims: claims,
-                    expires: DateTime.Now.AddMinutes(60),
+                    expires: DateTime.UtcNow.AddMinutes(60),
                     signingCredentials: creds
                 );
 
@@ -202,6 +321,30 @@ namespace FinancialManagerAPI.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro ao gerar o token JWT para o usuário {UserId}.", user.Id);
+                throw;
+            }
+        }
+
+        private async Task<string> GenerateEmailConfirmationToken(User user)
+        {
+            try
+            {
+                var token = Convert.ToBase64String(Guid.NewGuid().ToByteArray())
+                    .Replace("+", "")
+                    .Replace("/", "")
+                    .Replace("=", "");
+
+                user.EmailConfirmationToken = token;
+                user.EmailTokenExpiration = DateTime.UtcNow.AddMinutes(60);
+
+                _unitOfWork.Users.Update(user);
+                await _unitOfWork.CommitAsync();
+
+                return token;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao gerar o token de confirmação de e-mail para o usuário {UserId}.", user.Id);
                 throw;
             }
         }
