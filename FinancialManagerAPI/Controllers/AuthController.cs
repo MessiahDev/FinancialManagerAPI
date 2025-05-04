@@ -8,7 +8,6 @@ using Microsoft.AspNetCore.Authorization;
 using FinancialManagerAPI.DTOs.AuthDTOs;
 using FinancialManagerAPI.Services;
 using FinancialManagerAPI.DTOs.UserDTOs;
-using System.Threading.Tasks;
 
 namespace FinancialManagerAPI.Controllers
 {
