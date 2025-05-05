@@ -48,7 +48,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-string? connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+string? connectionString = Environment.GetEnvironmentVariable("ConnectionStrings_DefaultConnection")
     ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
 string jwtKey = Environment.GetEnvironmentVariable("Jwt__Key")
