@@ -3,6 +3,7 @@ using FinancialManagerAPI.Data.Repositories;
 using FinancialManagerAPI.Data.UnitOfWork;
 using FinancialManagerAPI.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -114,7 +115,11 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowVercel", policy =>
     {
-        policy.WithOrigins("https://financial-manager-psi.vercel.app")
+        string frontEndUrl = builder.Environment.IsDevelopment()
+            ? "https://localhost:5173"
+            : "https://financial-manager-psi.vercel.app";
+
+        policy.WithOrigins(frontEndUrl)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -123,14 +128,15 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-}
-else
-{
-    app.UseHttpsRedirection();
 }
 
 app.UseCors("AllowVercel");

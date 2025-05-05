@@ -44,7 +44,7 @@ namespace FinancialManagerAPI.Controllers
             if (user != null)
             {
                 _logger.LogWarning("Tentativa de registro falhada: já existe um usuário com o e-mail {Email}.", registerUserDto.Email);
-                return BadRequest("Usuário já existe com esse e-mail.");
+                return BadRequest("Já existe um usuário com esse e-mail!");
             }
 
             user = new User
@@ -231,7 +231,7 @@ namespace FinancialManagerAPI.Controllers
                 if (user == null || !_passwordService.VerifyPassword(loginDto.Password, user.PasswordHash))
                 {
                     _logger.LogWarning("Falha no login para o usuário {Email}.", loginDto.Email);
-                    return Unauthorized("E-mail ou senha inválidos.");
+                    return Unauthorized(new { message = "E-mail ou senha inválidos." });
                 }
 
                 if (!user.EmailConfirmed)
