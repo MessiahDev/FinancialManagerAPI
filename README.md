@@ -18,7 +18,7 @@ Autor
 
 # Funcionalidades:
 
-Cadastro e autenticação de usuários com JWT
+Cadastro e autenticação de usuários com JWT com confirmação de e-mail
 
 CRUD de receitas e despesas
 
@@ -46,7 +46,7 @@ Antes de iniciar, certifique-se de ter instalado:
 
 .NET SDK (versão utilizada no projeto)
 
-MySQL ou outro banco de dados compatível
+PostgreSQL ou outro banco de dados compatível
 
 Visual Studio ou outro IDE de sua preferência
 
@@ -88,15 +88,15 @@ PUT /api/users/{id} - Atualizar informações do usuário
 DELETE /api/users/{id} - Remover usuário
 
 Receitas
-GET /api/incomes - Listar receitas
+GET /api/revenues - Listar receitas
 
-POST /api/incomes - Criar nova receita
+POST /api/revenues - Criar nova receita
 
-GET /api/incomes/{id} - Obter detalhes de uma receita
+GET /api/revenues/{id} - Obter detalhes de uma receita
 
-PUT /api/incomes/{id} - Atualizar receita
+PUT /api/revenues/{id} - Atualizar receita
 
-DELETE /api/incomes/{id} - Remover receita
+DELETE /api/revenues/{id} - Remover receita
 
 Despesas
 GET /api/expenses - Listar despesas
@@ -129,7 +129,7 @@ Render
 
 Railway
 
-Heroku (com suporte ao .NET)
+Heroku
 
 # Autor:
 
