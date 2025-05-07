@@ -19,6 +19,7 @@ namespace FinancialManagerAPI.Controllers
         private readonly PasswordService _passwordService;
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
+        private readonly IAuthService _authService;
         private readonly IEmailService _emailService;
 
         public AuthController(
@@ -26,12 +27,14 @@ namespace FinancialManagerAPI.Controllers
             PasswordService passwordService,
             IConfiguration configuration,
             ILogger<AuthController> logger,
+            IAuthService authService,
             IEmailService emailService)
         {
             _unitOfWork = unitOfWork;
             _passwordService = passwordService;
             _configuration = configuration;
             _logger = logger;
+            _authService = authService;
             _emailService = emailService;
         }
 
@@ -55,7 +58,7 @@ namespace FinancialManagerAPI.Controllers
                 EmailConfirmed = false,
             };
 
-            var token = GenerateJwtToken(user);
+            var token = _authService.GenerateToken(user);
             user.EmailConfirmationToken = token;
 
             _unitOfWork.Users.Add(user);
@@ -116,7 +119,7 @@ namespace FinancialManagerAPI.Controllers
                 return BadRequest("Este e-mail já foi confirmado.");
             }
 
-            var token = await GenerateEmailConfirmationToken(user);
+            var token = _authService.GenerateToken(user);
             user.EmailConfirmationToken = token;
 
             _unitOfWork.Users.Update(user);
@@ -237,10 +240,10 @@ namespace FinancialManagerAPI.Controllers
                 if (!user.EmailConfirmed)
                 {
                     _logger.LogWarning("Tentativa de login com e-mail não confirmado: {Email}.", loginDto.Email);
-                    return UnprocessableEntity("E-mail não confirmado. Verifique sua caixa de entrada.");
+                    return UnprocessableEntity("E-mail não confirmado! Verifique sua caixa de entrada ou spam.");
                 }
 
-                var token = GenerateJwtToken(user);
+                var token = _authService.GenerateToken(user);
 
                 _logger.LogInformation("Usuário {Email} logado com sucesso.", loginDto.Email);
 
@@ -285,66 +288,6 @@ namespace FinancialManagerAPI.Controllers
             {
                 _logger.LogError(ex, "Erro ao obter o perfil do usuário.");
                 return StatusCode(500, "Erro interno do servidor.");
-            }
-        }
-
-        private string GenerateJwtToken(User user)
-        {
-            try
-            {
-                var claims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                    new Claim(ClaimTypes.Name, user.Name),
-                    new Claim(ClaimTypes.Email, user.Email)
-                };
-
-                if (!string.IsNullOrEmpty(user.Role))
-                {
-                    claims.Add(new Claim(ClaimTypes.Role, user.Role));
-                }
-
-                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-                var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-                var token = new JwtSecurityToken(
-                    issuer: _configuration["Jwt:Issuer"],
-                    audience: _configuration["Jwt:Issuer"],
-                    claims: claims,
-                    expires: DateTime.UtcNow.AddDays(1),
-                    signingCredentials: creds
-                );
-
-                return new JwtSecurityTokenHandler().WriteToken(token);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao gerar o token JWT para o usuário {UserId}.", user.Id);
-                throw;
-            }
-        }
-
-        private async Task<string> GenerateEmailConfirmationToken(User user)
-        {
-            try
-            {
-                var token = Convert.ToBase64String(Guid.NewGuid().ToByteArray())
-                    .Replace("+", "")
-                    .Replace("/", "")
-                    .Replace("=", "");
-
-                user.EmailConfirmationToken = token;
-                user.EmailTokenExpiration = DateTime.UtcNow.AddMinutes(60);
-
-                _unitOfWork.Users.Update(user);
-                await _unitOfWork.CommitAsync();
-
-                return token;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao gerar o token de confirmação de e-mail para o usuário {UserId}.", user.Id);
-                throw;
             }
         }
     }

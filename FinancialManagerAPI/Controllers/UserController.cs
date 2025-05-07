@@ -1,13 +1,9 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using AutoMapper;
+﻿using AutoMapper;
 using FinancialManagerAPI.Data.UnitOfWork;
 using FinancialManagerAPI.DTOs.UserDTOs;
 using FinancialManagerAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
 
 namespace FinancialManagerAPI.Controllers
 {
@@ -20,6 +16,7 @@ namespace FinancialManagerAPI.Controllers
         private readonly IConfiguration _configuration;
         private readonly PasswordService _passwordService;
         private readonly ILogger<UserController> _logger;
+        private readonly IAuthService _authService;
         private readonly IEmailService _emailService;
 
         public UserController(
@@ -27,7 +24,7 @@ namespace FinancialManagerAPI.Controllers
             IMapper mapper,
             IConfiguration configuration,
             PasswordService passwordService,
-            AuthService authService,
+            IAuthService authService,
             IEmailService emailService,
             ILogger<UserController> logger)
         {
@@ -36,6 +33,7 @@ namespace FinancialManagerAPI.Controllers
             _configuration = configuration;
             _passwordService = passwordService;
             _logger = logger;
+            _authService = authService;
             _emailService = emailService;
         }
 
@@ -100,7 +98,7 @@ namespace FinancialManagerAPI.Controllers
                     user.Email = updateDto.Email;
                     user.EmailConfirmed = false;
 
-                    var token = await GenerateEmailConfirmationToken(user);
+                    var token = _authService.GenerateToken(user);
                     user.EmailConfirmationToken = token;
 
                     var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_BASE_URL") ?? "https://localhost:5173";
@@ -197,30 +195,6 @@ namespace FinancialManagerAPI.Controllers
             {
                 _logger.LogError(ex, "Ocorreu um erro ao buscar o usuário com ID {UserId}.", id);
                 return StatusCode(500, "Erro interno no servidor.");
-            }
-        }
-
-        private async Task<string> GenerateEmailConfirmationToken(User user)
-        {
-            try
-            {
-                var token = Convert.ToBase64String(Guid.NewGuid().ToByteArray())
-                    .Replace("+", "")
-                    .Replace("/", "")
-                    .Replace("=", "");
-
-                user.EmailConfirmationToken = token;
-                user.EmailTokenExpiration = DateTime.UtcNow.AddMinutes(60);
-
-                _unitOfWork.Users.Update(user);
-                await _unitOfWork.CommitAsync();
-
-                return token;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao gerar o token de confirmação de e-mail para o usuário {UserId}.", user.Id);
-                throw;
             }
         }
     }
