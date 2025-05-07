@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using FinancialManagerAPI.Data.UnitOfWork;
+using FinancialManagerAPI.DTOs.RevenueDTOs;
 using FinancialManagerAPI.DTOs.UserDTOs;
 using FinancialManagerAPI.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -49,9 +50,17 @@ namespace FinancialManagerAPI.Controllers
                     return BadRequest("Este email já está em uso.");
                 }
 
+                var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == registerDto.Email);
+
+                if (user != null)
+                {
+                    _logger.LogWarning("Tentativa de registro falhada: já existe um usuário com esse e-mail! {Email}.", registerDto.Email);
+                    return BadRequest(new { message = "Já existe um usuário com esse e-mail!" });
+                }
+
                 var hashedPassword = _passwordService.HashPassword(registerDto.Password);
 
-                var user = new User
+                user = new User
                 {
                     Name = registerDto.Name,
                     Email = registerDto.Email,

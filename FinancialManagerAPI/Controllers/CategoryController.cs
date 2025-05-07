@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using FinancialManagerAPI.Data.UnitOfWork;
 using FinancialManagerAPI.DTOs.CategoryDTOs;
+using FinancialManagerAPI.DTOs.DebtDTOs;
 using FinancialManagerAPI.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -31,14 +32,14 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
-                var existingCategory = await _unitOfWork.Categories.FindFirstOrDefaultAsync(c => c.Name == createCategoryDto.Name && c.Id == createCategoryDto.UserId);
-                if (existingCategory != null)
+                var category = await _unitOfWork.Categories.FindFirstOrDefaultAsync(c => c.Name == createCategoryDto.Name);
+                if (category != null)
                 {
-                    _logger.LogWarning("Nome da categoria {CategoryName} já está em uso.", createCategoryDto.Name);
-                    return BadRequest("Nome da categoria já está em uso.");
+                    _logger.LogWarning("Tentativa de registro falhada: já existe uma categoria com esse nome! {Name}.", createCategoryDto.Name);
+                    return BadRequest(new { message = "Já existe uma categoria com esse nome!" });
                 }
 
-                var category = _mapper.Map<Category>(createCategoryDto);
+                category = _mapper.Map<Category>(createCategoryDto);
                 _unitOfWork.Categories.Add(category);
                 await _unitOfWork.CommitAsync();
 

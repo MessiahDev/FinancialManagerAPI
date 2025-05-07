@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using FinancialManagerAPI.Data.UnitOfWork;
+using FinancialManagerAPI.DTOs.ExpenseDTOs;
 using FinancialManagerAPI.DTOs.RevenueDTOs;
 using FinancialManagerAPI.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -37,7 +38,15 @@ namespace FinancialManagerAPI.Controllers
                     return BadRequest("Os dados da receita são obrigatórios.");
                 }
 
-                var revenue = _mapper.Map<Revenue>(createRevenueDto);
+                var revenue = await _unitOfWork.Revenues.FindFirstOrDefaultAsync(r => r.Description == createRevenueDto.Description);
+
+                if (revenue != null)
+                {
+                    _logger.LogWarning("Tentativa de registro falhada: já existe uma receita com esse nome! {Description}.", createRevenueDto.Description);
+                    return BadRequest(new { message = "Já existe uma receita com esse nome!" });
+                }
+
+                revenue = _mapper.Map<Revenue>(createRevenueDto);
                 _unitOfWork.Revenues.Add(revenue);
                 await _unitOfWork.CommitAsync();
 

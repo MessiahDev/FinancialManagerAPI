@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using FinancialManagerAPI.Data.UnitOfWork;
 using FinancialManagerAPI.DTOs.DebtDTOs;
+using FinancialManagerAPI.DTOs.UserDTOs;
 using FinancialManagerAPI.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -37,7 +38,14 @@ namespace FinancialManagerAPI.Controllers
                     return BadRequest("Os dados da dívida são obrigatórios.");
                 }
 
-                var debt = _mapper.Map<Debt>(createDebtDto);
+                var debt = await _unitOfWork.Debts.FindFirstOrDefaultAsync(d => d.Description == createDebtDto.Description);
+                if (debt != null)
+                {
+                    _logger.LogWarning("Tentativa de registro falhada: já existe um débito com esse nome! {Description}.", createDebtDto.Description);
+                    return BadRequest(new { message = "Já existe um débito com esse nome!" });
+                }
+
+                debt = _mapper.Map<Debt>(createDebtDto);
                 _unitOfWork.Debts.Add(debt);
                 await _unitOfWork.CommitAsync();
 

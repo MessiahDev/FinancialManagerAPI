@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using FinancialManagerAPI.Data.UnitOfWork;
+using FinancialManagerAPI.DTOs.DebtDTOs;
 using FinancialManagerAPI.DTOs.ExpenseDTOs;
 using FinancialManagerAPI.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -37,7 +38,15 @@ namespace FinancialManagerAPI.Controllers
                     return BadRequest("Os dados da despesa são obrigatórios.");
                 }
 
-                var expense = _mapper.Map<Expense>(createExpenseDto);
+                var expense = await _unitOfWork.Expenses.FindFirstOrDefaultAsync(e => e.Description == createExpenseDto.Description);
+
+                if (expense != null)
+                {
+                    _logger.LogWarning("Tentativa de registro falhada: já existe uma despesa com esse nome! {Description}.", createExpenseDto.Description);
+                    return BadRequest(new { message = "Já existe uma despesa com esse nome!" });
+                }
+
+                expense = _mapper.Map<Expense>(createExpenseDto);
                 _unitOfWork.Expenses.Add(expense);
                 await _unitOfWork.CommitAsync();
 

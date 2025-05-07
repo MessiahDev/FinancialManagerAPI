@@ -47,7 +47,7 @@ namespace FinancialManagerAPI.Controllers
             if (user != null)
             {
                 _logger.LogWarning("Tentativa de registro falhada: já existe um usuário com o e-mail {Email}.", registerUserDto.Email);
-                return BadRequest("Já existe um usuário com esse e-mail!");
+                return BadRequest(new { message = "Já existe um usuário com esse e-mail!" });
             }
 
             user = new User
@@ -240,7 +240,7 @@ namespace FinancialManagerAPI.Controllers
                 if (!user.EmailConfirmed)
                 {
                     _logger.LogWarning("Tentativa de login com e-mail não confirmado: {Email}.", loginDto.Email);
-                    return UnprocessableEntity("E-mail não confirmado! Verifique sua caixa de entrada ou spam.");
+                    return UnprocessableEntity(new { message = "E-mail não confirmado! Verifique sua caixa de entrada ou spam." });
                 }
 
                 var token = _authService.GenerateToken(user);
