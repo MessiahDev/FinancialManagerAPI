@@ -52,10 +52,12 @@ builder.Services.AddSwaggerGen(c =>
 string? connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
     ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
-string jwtKey = Environment.GetEnvironmentVariable("Jwt__Key")
+string jwtKey = Environment.GetEnvironmentVariable("JWT_KEY")
+    ?? Environment.GetEnvironmentVariable("Jwt__Key")
     ?? builder.Configuration["Jwt:Key"];
 
-string jwtIssuer = Environment.GetEnvironmentVariable("Jwt__Issuer")
+string jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
+    ?? Environment.GetEnvironmentVariable("Jwt__Issuer")
     ?? builder.Configuration["Jwt:Issuer"];
 
 builder.Services.AddDbContext<AppDbContext>(options =>
