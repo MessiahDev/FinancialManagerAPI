@@ -361,3 +361,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Ignorar arquivos de configuração do ASP.NET Core
+appsettings.json
+appsettings.Production.json
+appsettings.Development.json
