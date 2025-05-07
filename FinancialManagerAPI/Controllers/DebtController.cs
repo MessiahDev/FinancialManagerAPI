@@ -89,6 +89,23 @@ namespace FinancialManagerAPI.Controllers
             }
         }
 
+        [HttpGet("user/{userId}")]
+        public async Task<IActionResult> GetDebtsByUserId(int userId)
+        {
+            try
+            {
+                var debts = await _unitOfWork.Debts.FindAsync(d => d.UserId == userId);
+
+                var debtsDto = _mapper.Map<IEnumerable<DebtDto>>(debts);
+                return Ok(debtsDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao buscar dívidas do usuário com ID {UserId}.", userId);
+                return StatusCode(500, "Erro interno do servidor.");
+            }
+        }
+
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateDebt(int id, [FromBody] UpdateDebtDto updateDebtDto)
         {

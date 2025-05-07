@@ -78,7 +78,8 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = jwtIssuer,
         ValidAudience = jwtIssuer,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        ClockSkew = TimeSpan.Zero
     };
 
     options.Events = new JwtBearerEvents
@@ -140,7 +141,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowVercel");
-
+app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 

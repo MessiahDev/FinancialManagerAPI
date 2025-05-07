@@ -311,7 +311,7 @@ namespace FinancialManagerAPI.Controllers
                     issuer: _configuration["Jwt:Issuer"],
                     audience: _configuration["Jwt:Issuer"],
                     claims: claims,
-                    expires: DateTime.UtcNow.AddMinutes(60),
+                    expires: DateTime.UtcNow.AddDays(1),
                     signingCredentials: creds
                 );
 

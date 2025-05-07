@@ -6,5 +6,6 @@
         public decimal Amount { get; set; }
         public DateTime DueDate { get; set; }
         public string? Creditor { get; set; }
+        public bool IsPaid { get; set; }
     }
 }

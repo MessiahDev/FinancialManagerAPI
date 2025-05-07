@@ -29,7 +29,7 @@ public class AuthService
             issuer: _configuration["Jwt:Issuer"],
             audience: _configuration["Jwt:Issuer"],
             claims: claims,
-            expires: DateTime.Now.AddHours(1),
+            expires: DateTime.Now.AddDays(1),
             signingCredentials: creds
         );
 
