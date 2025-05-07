@@ -49,16 +49,17 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-string? connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-    ?? builder.Configuration.GetConnectionString("DefaultConnection");
+string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? builder.Configuration["ConnectionStrings:DefaultConnection"];
 
-string jwtKey = Environment.GetEnvironmentVariable("JWT_KEY")
-    ?? Environment.GetEnvironmentVariable("Jwt__Key")
-    ?? builder.Configuration["Jwt:Key"];
+string jwtKey = builder.Configuration["Jwt:Key"];
+string jwtIssuer = builder.Configuration["Jwt:Issuer"];
 
-string jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
-    ?? Environment.GetEnvironmentVariable("Jwt__Issuer")
-    ?? builder.Configuration["Jwt:Issuer"];
+if (string.IsNullOrEmpty(jwtKey))
+    throw new ArgumentException("JWT Key não foi configurada.");
+
+if (string.IsNullOrEmpty(jwtIssuer))
+    throw new ArgumentException("JWT Issuer não foi configurado.");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
