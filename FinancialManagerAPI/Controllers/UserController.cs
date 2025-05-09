@@ -1,5 +1,8 @@
 ﻿using AutoMapper;
 using FinancialManagerAPI.Data.UnitOfWork;
+using FinancialManagerAPI.DTOs.CategoryDTOs;
+using FinancialManagerAPI.DTOs.DebtDTOs;
+using FinancialManagerAPI.DTOs.ExpenseDTOs;
 using FinancialManagerAPI.DTOs.RevenueDTOs;
 using FinancialManagerAPI.DTOs.UserDTOs;
 using FinancialManagerAPI.Services;
@@ -36,49 +39,6 @@ namespace FinancialManagerAPI.Controllers
             _logger = logger;
             _authService = authService;
             _emailService = emailService;
-        }
-
-        [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterUserDto registerDto)
-        {
-            try
-            {
-                var existingUser = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == registerDto.Email);
-                if (existingUser != null)
-                {
-                    _logger.LogWarning($"O email {registerDto.Email} já está em uso.");
-                    return BadRequest("Este email já está em uso.");
-                }
-
-                var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == registerDto.Email);
-
-                if (user != null)
-                {
-                    _logger.LogWarning("Tentativa de registro falhada: já existe um usuário com esse e-mail! {Email}.", registerDto.Email);
-                    return BadRequest(new { message = "Já existe um usuário com esse e-mail!" });
-                }
-
-                var hashedPassword = _passwordService.HashPassword(registerDto.Password);
-
-                user = new User
-                {
-                    Name = registerDto.Name,
-                    Email = registerDto.Email,
-                    PasswordHash = hashedPassword
-                };
-
-                _unitOfWork.Users.Add(user);
-                await _unitOfWork.CommitAsync();
-
-                _logger.LogInformation($"Usuário {registerDto.Name} cadastrado com sucesso. Email: {registerDto.Email}");
-
-                return Ok("Usuário cadastrado com sucesso!");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Ocorreu um erro ao cadastrar o usuário.");
-                return StatusCode(500, "Erro interno no servidor.");
-            }
         }
 
         [Authorize]     
@@ -180,6 +140,42 @@ namespace FinancialManagerAPI.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Ocorreu um erro ao buscar todos os usuários.");
+                return StatusCode(500, "Erro interno no servidor.");
+            }
+        }
+
+        [Authorize]
+        [HttpGet("allIncludes/{id}")]
+        public async Task<IActionResult> GetAllIncludes(int id)
+        {
+            try
+            {
+                var user = await _unitOfWork.Users.GetByIdWithIncludesAsync(id,
+                u => u.Expenses,
+                u => u.Revenues,
+                u => u.Debts);
+
+                if (user == null)
+                    return NotFound("Usuário não encontrado.");
+
+                var userCategories = await _unitOfWork.Categories.GetAllByFuncAsync(c => c.UserId == user.Id);
+
+                var userDto = new UserDto
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Email = user.Email,
+                    Categories = _mapper.Map<List<CategoryDto>>(userCategories),
+                    Expenses = _mapper.Map<List<ExpenseDto>>(user.Expenses),
+                    Revenues = _mapper.Map<List<RevenueDto>>(user.Revenues),
+                    Debts = _mapper.Map<List<DebtDto>>(user.Debts)
+                };
+
+                return Ok(userDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ocorreu um erro ao buscar usuário.");
                 return StatusCode(500, "Erro interno no servidor.");
             }
         }
