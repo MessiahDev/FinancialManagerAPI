@@ -1,4 +1,6 @@
-﻿public class PasswordService
+﻿using FinancialManagerAPI.Services;
+
+public class PasswordService : IPasswordService
 {
     public string HashPassword(string password)
     {

@@ -18,19 +18,21 @@ namespace FinancialManagerAPI.Controllers
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly IConfiguration _configuration;
-        private readonly PasswordService _passwordService;
+        private readonly IPasswordService _passwordService;
         private readonly ILogger<UserController> _logger;
         private readonly IAuthService _authService;
         private readonly IEmailService _emailService;
+        private readonly IEmailValidatorService _emailValidatorService;
 
         public UserController(
             IUnitOfWork unitOfWork,
             IMapper mapper,
             IConfiguration configuration,
-            PasswordService passwordService,
+            IPasswordService passwordService,
             IAuthService authService,
             IEmailService emailService,
-            ILogger<UserController> logger)
+            ILogger<UserController> logger,
+            IEmailValidatorService emailValidatorService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
@@ -39,6 +41,7 @@ namespace FinancialManagerAPI.Controllers
             _logger = logger;
             _authService = authService;
             _emailService = emailService;
+            _emailValidatorService = emailValidatorService;
         }
 
         [Authorize]     
@@ -62,6 +65,12 @@ namespace FinancialManagerAPI.Controllers
                     {
                         _logger.LogWarning("Tentativa de atualização falhada: já existe um usuário com o e-mail {Email}.", updateDto.Email);
                         return BadRequest("Já existe um usuário com esse e-mail!");
+                    }
+
+                    if (!await _emailValidatorService.HasValidMxRecordAsync(updateDto.Email))
+                    {
+                        _logger.LogWarning("Domínio de e-mail inválido ou sem suporte para e-mails: {Email}.", updateDto.Email);
+                        return BadRequest(new { message = "O domínio do e-mail é inválido! Somente e-mails reais são aceitos." });
                     }
 
                     user.Email = updateDto.Email;

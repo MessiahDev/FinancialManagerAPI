@@ -1,6 +1,5 @@
 ﻿using AutoMapper;
 using FinancialManagerAPI.Data.UnitOfWork;
-using FinancialManagerAPI.DTOs.DebtDTOs;
 using FinancialManagerAPI.DTOs.ExpenseDTOs;
 using FinancialManagerAPI.Models;
 using Microsoft.AspNetCore.Authorization;

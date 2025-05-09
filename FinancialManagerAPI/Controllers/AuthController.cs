@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using FinancialManagerAPI.DTOs.AuthDTOs;
 using FinancialManagerAPI.Services;
 using FinancialManagerAPI.DTOs.UserDTOs;
+using Npgsql.Replication.PgOutput.Messages;
 
 namespace FinancialManagerAPI.Controllers
 {
@@ -16,7 +17,7 @@ namespace FinancialManagerAPI.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IUnitOfWork _unitOfWork;
-        private readonly PasswordService _passwordService;
+        private readonly IPasswordService _passwordService;
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
         private readonly IAuthService _authService;
@@ -25,7 +26,7 @@ namespace FinancialManagerAPI.Controllers
 
         public AuthController(
             IUnitOfWork unitOfWork,
-            PasswordService passwordService,
+            IPasswordService passwordService,
             IConfiguration configuration,
             ILogger<AuthController> logger,
             IAuthService authService,
@@ -86,7 +87,7 @@ namespace FinancialManagerAPI.Controllers
 
             _logger.LogInformation("Usuário {Email} registrado com sucesso. Link de confirmação enviado.", user.Email);
 
-            return Ok("Usuário registrado com sucesso. Verifique seu e-mail para confirmar.");
+            return Ok( new { success = true, message = "Usuário registrado com sucesso. Verifique seu e-mail para confirmar." });
         }
 
 
@@ -105,7 +106,7 @@ namespace FinancialManagerAPI.Controllers
             if (user == null)
             {
                 _logger.LogWarning("Token de confirmação inválido ou expirado.");
-                return BadRequest( new { message = "Token inválido ou expirado." });
+                return BadRequest(new { message = "Token inválido ou expirado." });
             }
 
             user.EmailConfirmed = true;
