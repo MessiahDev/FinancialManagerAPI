@@ -21,6 +21,7 @@ namespace FinancialManagerAPI.Controllers
         private readonly ILogger<AuthController> _logger;
         private readonly IAuthService _authService;
         private readonly IEmailService _emailService;
+        private readonly IEmailValidatorService _emailValidatorService;
 
         public AuthController(
             IUnitOfWork unitOfWork,
@@ -28,7 +29,8 @@ namespace FinancialManagerAPI.Controllers
             IConfiguration configuration,
             ILogger<AuthController> logger,
             IAuthService authService,
-            IEmailService emailService)
+            IEmailService emailService,
+            IEmailValidatorService emailValidatorService)
         {
             _unitOfWork = unitOfWork;
             _passwordService = passwordService;
@@ -36,6 +38,7 @@ namespace FinancialManagerAPI.Controllers
             _logger = logger;
             _authService = authService;
             _emailService = emailService;
+            _emailValidatorService = emailValidatorService;
         }
 
         [HttpPost("register")]
@@ -43,11 +46,23 @@ namespace FinancialManagerAPI.Controllers
         {
             _logger.LogInformation("Tentativa de registro para o usuário {Email}.", registerUserDto.Email);
 
+            if (!_emailValidatorService.IsValidEmailFormat(registerUserDto.Email))
+            {
+                _logger.LogWarning("E-mail com formato inválido: {Email}.", registerUserDto.Email);
+                return BadRequest(new { message = "E-mail com formato inválido." });
+            }
+
+            if (!await _emailValidatorService.HasValidMxRecordAsync(registerUserDto.Email))
+            {
+                _logger.LogWarning("Domínio de e-mail inválido ou sem suporte para e-mails: {Email}.", registerUserDto.Email);
+                return BadRequest(new { message = "O domínio do e-mail é inválido! Somente e-mails reais são aceitos." });
+            }
+
             var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == registerUserDto.Email);
             if (user != null)
             {
                 _logger.LogWarning("Tentativa de registro falhada: já existe um usuário com o e-mail {Email}.", registerUserDto.Email);
-                return BadRequest(new { message = "Já existe um usuário com esse e-mail!" });
+                return BadRequest(new { message = "Já existe um usuário com este e-mail!" });
             }
 
             user = new User
@@ -74,6 +89,7 @@ namespace FinancialManagerAPI.Controllers
             return Ok("Usuário registrado com sucesso. Verifique seu e-mail para confirmar.");
         }
 
+
         [HttpGet("confirm-email")]
         public async Task<IActionResult> ConfirmEmail([FromQuery] string token)
         {
@@ -89,7 +105,7 @@ namespace FinancialManagerAPI.Controllers
             if (user == null)
             {
                 _logger.LogWarning("Token de confirmação inválido ou expirado.");
-                return BadRequest("Token inválido ou expirado.");
+                return BadRequest( new { message = "Token inválido ou expirado." });
             }
 
             user.EmailConfirmed = true;
@@ -139,6 +155,18 @@ namespace FinancialManagerAPI.Controllers
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPassword request)
         {
             _logger.LogInformation("Solicitação de redefinição de senha recebida para o e-mail {Email}.", request.Email);
+
+            if (!_emailValidatorService.IsValidEmailFormat(request.Email))
+            {
+                _logger.LogWarning("E-mail com formato inválido: {Email}.", request.Email);
+                return BadRequest(new { message = "E-mail com formato inválido." });
+            }
+
+            if (!await _emailValidatorService.HasValidMxRecordAsync(request.Email))
+            {
+                _logger.LogWarning("Domínio de e-mail inválido ou sem suporte para e-mails: {Email}.", request.Email);
+                return BadRequest(new { message = "O domínio do e-mail é inválido! Somente e-mails reais são aceitos." });
+            }
 
             var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == request.Email);
             if (user == null)
@@ -252,7 +280,7 @@ namespace FinancialManagerAPI.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Ocorreu um erro ao processar o login para o usuário {Email}.", loginDto.Email);
-                return StatusCode(500, "Erro interno do servidor.");
+                return StatusCode(500, new { message = "Erro interno do servidor." });
             }
         }
 

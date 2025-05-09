@@ -116,6 +116,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<PasswordService>();
 builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IEmailValidatorService, EmailValidatorService>();
 
 builder.Services.AddCors(options =>
 {
