@@ -39,6 +39,8 @@ namespace FinancialManagerAPI.Data.Repositories
                 query = query.Include(include);
             }
 
+            query = query.AsNoTracking();
+
             return await query.FirstOrDefaultAsync(e => EF.Property<int>(e, "Id") == id);
         }
     }

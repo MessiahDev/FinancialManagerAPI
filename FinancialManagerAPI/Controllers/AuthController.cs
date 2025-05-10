@@ -8,7 +8,6 @@ using Microsoft.AspNetCore.Authorization;
 using FinancialManagerAPI.DTOs.AuthDTOs;
 using FinancialManagerAPI.Services;
 using FinancialManagerAPI.DTOs.UserDTOs;
-using Npgsql.Replication.PgOutput.Messages;
 
 namespace FinancialManagerAPI.Controllers
 {
