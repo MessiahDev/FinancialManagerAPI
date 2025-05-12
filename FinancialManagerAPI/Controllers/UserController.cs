@@ -127,7 +127,7 @@ namespace FinancialManagerAPI.Controllers
 
                 _logger.LogInformation($"Usuário {id} excluído com sucesso.");
 
-                return Ok(new { Message = $"Usuário {id} excluído com sucesso." });
+                return Ok(new { success = true, Message = $"Usuário {id} excluído com sucesso." });
             }
             catch (Exception ex)
             {

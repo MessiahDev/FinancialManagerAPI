@@ -1,6 +1,4 @@
-﻿using DnsClient;
-using Microsoft.Extensions.Configuration;
-using System.Net.Mail;
+﻿using System.Net.Mail;
 
 namespace FinancialManagerAPI.Services
 {
@@ -36,9 +34,7 @@ namespace FinancialManagerAPI.Services
             if (_blockedKeywords.Any(keyword => domain.Contains(keyword)))
                 return false;
 
-            var lookup = new LookupClient();
-            var result = await lookup.QueryAsync(domain, QueryType.MX);
-            return result.Answers.MxRecords().Any();
+            return true;
         }
     }
 }

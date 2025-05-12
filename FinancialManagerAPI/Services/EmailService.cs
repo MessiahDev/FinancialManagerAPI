@@ -33,7 +33,6 @@ public class EmailService : IEmailService
         }
         catch (Exception ex)
         {
-            // Log the error or handle it appropriately
             Console.WriteLine($"Error sending email: {ex.Message}");
             throw;
         }
