@@ -14,7 +14,7 @@ namespace FinancialManagerAPI.Data.Repositories
             _dbSet = _context.Set<T>();
         }
 
-        public async Task<T> GetByIdAsync(int id) => await _dbSet.FindAsync(id);
+        public async Task<T?> GetByIdAsync(int? id) => await _dbSet.FindAsync(id);
 
         public async Task<T> FindFirstOrDefaultAsync(Expression<Func<T, bool>> predicate) => await _dbSet.FirstOrDefaultAsync(predicate);
 

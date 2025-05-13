@@ -20,6 +20,7 @@ namespace FinancialManagerAPI.Controllers
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
         private readonly IAuthService _authService;
+        private readonly IUserContextService _userContextService;
         private readonly IEmailService _emailService;
         private readonly IEmailValidatorService _emailValidatorService;
 
@@ -29,6 +30,7 @@ namespace FinancialManagerAPI.Controllers
             IConfiguration configuration,
             ILogger<AuthController> logger,
             IAuthService authService,
+            IUserContextService userContextService,
             IEmailService emailService,
             IEmailValidatorService emailValidatorService)
         {
@@ -37,6 +39,7 @@ namespace FinancialManagerAPI.Controllers
             _configuration = configuration;
             _logger = logger;
             _authService = authService;
+            _userContextService = userContextService;
             _emailService = emailService;
             _emailValidatorService = emailValidatorService;
         }
@@ -290,13 +293,13 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
-                var userIdClaim = HttpContext.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+                var userIdClaim = _userContextService.GetUserId();
                 if (userIdClaim == null)
                 {
                     return Unauthorized("Usuário não autenticado.");
                 }
 
-                var userId = int.Parse(userIdClaim.Value);
+                var userId = userIdClaim;
                 var user = await _unitOfWork.Users.GetByIdAsync(userId);
 
                 if (user == null)
