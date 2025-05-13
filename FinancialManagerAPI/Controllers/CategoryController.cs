@@ -31,7 +31,7 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
-                var category = await _unitOfWork.Categories.FindFirstOrDefaultAsync(c => c.Name == createCategoryDto.Name);
+                var category = await _unitOfWork.Categories.FindFirstOrDefaultAsync(c => c.Name == createCategoryDto.Name && c.UserId == createCategoryDto.UserId);
                 if (category != null)
                 {
                     _logger.LogWarning("Tentativa de registro falhada: já existe uma categoria com esse nome! {Name}.", createCategoryDto.Name);
