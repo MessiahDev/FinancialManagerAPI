@@ -2,6 +2,7 @@
 using FinancialManagerAPI.Data.UnitOfWork;
 using FinancialManagerAPI.DTOs.ExpenseDTOs;
 using FinancialManagerAPI.Models;
+using FinancialManagerAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,15 +16,18 @@ namespace FinancialManagerAPI.Controllers
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly ILogger<ExpenseController> _logger;
+        private readonly IUserContextService _userContextService;
 
         public ExpenseController(
             IUnitOfWork unitOfWork,
             IMapper mapper,
-            ILogger<ExpenseController> logger)
+            ILogger<ExpenseController> logger,
+            IUserContextService userContextService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _logger = logger;
+            _userContextService = userContextService;
         }
 
         [HttpPost]
@@ -31,13 +35,15 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
+                var userId = _userContextService.GetUserId();
+
                 if (createExpenseDto == null)
                 {
                     _logger.LogWarning("Os dados da despesa são obrigatórios.");
                     return BadRequest("Os dados da despesa são obrigatórios.");
                 }
 
-                var expense = await _unitOfWork.Expenses.FindFirstOrDefaultAsync(e => e.Description == createExpenseDto.Description && e.UserId == createExpenseDto.UserId);
+                var expense = await _unitOfWork.Expenses.FindFirstOrDefaultAsync(e => e.Description == createExpenseDto.Description && e.UserId == userId);
 
                 if (expense != null)
                 {
@@ -46,6 +52,7 @@ namespace FinancialManagerAPI.Controllers
                 }
 
                 expense = _mapper.Map<Expense>(createExpenseDto);
+                expense.UserId = userId ?? throw new UnauthorizedAccessException("Usuário não identificado.");
                 _unitOfWork.Expenses.Add(expense);
                 await _unitOfWork.CommitAsync();
 
@@ -118,6 +125,14 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
+                var userId = _userContextService.GetUserId();
+
+                if (userId is null)
+                {
+                    _logger.LogWarning("Usuário não autenticado.");
+                    return Unauthorized();
+                }
+
                 var existingExpense = await _unitOfWork.Expenses.GetByIdAsync(id);
                 if (existingExpense == null)
                 {
@@ -126,6 +141,7 @@ namespace FinancialManagerAPI.Controllers
                 }
 
                 _mapper.Map(updateExpenseDto, existingExpense);
+                existingExpense.UserId = userId ?? throw new UnauthorizedAccessException("Usuário não identificado.");
                 _unitOfWork.Expenses.Update(existingExpense);
                 await _unitOfWork.CommitAsync();
 

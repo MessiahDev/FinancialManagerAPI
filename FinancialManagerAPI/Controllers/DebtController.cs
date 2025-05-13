@@ -2,6 +2,7 @@
 using FinancialManagerAPI.Data.UnitOfWork;
 using FinancialManagerAPI.DTOs.DebtDTOs;
 using FinancialManagerAPI.Models;
+using FinancialManagerAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,15 +16,18 @@ namespace FinancialManagerAPI.Controllers
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly ILogger<DebtController> _logger;
+        private readonly IUserContextService _userContextService;
 
         public DebtController(
             IUnitOfWork unitOfWork,
             IMapper mapper,
-            ILogger<DebtController> logger)
+            ILogger<DebtController> logger,
+            IUserContextService userContextService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _logger = logger;
+            _userContextService = userContextService;
         }
 
         [HttpPost]
@@ -31,13 +35,15 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
+                var userId = _userContextService.GetUserId();
+
                 if (createDebtDto == null)
                 {
                     _logger.LogWarning("Os dados da dívida são obrigatórios.");
                     return BadRequest("Os dados da dívida são obrigatórios.");
                 }
 
-                var debt = await _unitOfWork.Debts.FindFirstOrDefaultAsync(d => d.Description == createDebtDto.Description && d.UserId == createDebtDto.UserId);
+                var debt = await _unitOfWork.Debts.FindFirstOrDefaultAsync(d => d.Description == createDebtDto.Description && d.UserId == userId);
                 if (debt != null)
                 {
                     _logger.LogWarning("Tentativa de registro falhada: já existe um débito com esse nome! {Description}.", createDebtDto.Description);
@@ -45,6 +51,7 @@ namespace FinancialManagerAPI.Controllers
                 }
 
                 debt = _mapper.Map<Debt>(createDebtDto);
+                debt.UserId = userId ?? throw new UnauthorizedAccessException("Usuário não identificado.");
                 _unitOfWork.Debts.Add(debt);
                 await _unitOfWork.CommitAsync();
 
@@ -118,6 +125,14 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
+                var userId = _userContextService.GetUserId();
+
+                if (userId is null)
+                {
+                    _logger.LogWarning("Usuário não autenticado.");
+                    return Unauthorized();
+                }
+
                 var existingDebt = await _unitOfWork.Debts.GetByIdAsync(id);
                 if (existingDebt == null)
                 {
@@ -126,6 +141,7 @@ namespace FinancialManagerAPI.Controllers
                 }
 
                 _mapper.Map(updateDebtDto, existingDebt);
+                existingDebt.UserId = userId ?? throw new UnauthorizedAccessException("Usuário não identificado.");
                 _unitOfWork.Debts.Update(existingDebt);
                 await _unitOfWork.CommitAsync();
 

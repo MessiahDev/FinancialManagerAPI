@@ -2,6 +2,7 @@
 using FinancialManagerAPI.Data.UnitOfWork;
 using FinancialManagerAPI.DTOs.RevenueDTOs;
 using FinancialManagerAPI.Models;
+using FinancialManagerAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,15 +16,18 @@ namespace FinancialManagerAPI.Controllers
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly ILogger<RevenueController> _logger;
+        private readonly IUserContextService _userContextService;
 
         public RevenueController(
             IUnitOfWork unitOfWork,
             IMapper mapper,
-            ILogger<RevenueController> logger)
+            ILogger<RevenueController> logger,
+            IUserContextService userContextService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _logger = logger;
+            _userContextService = userContextService;
         }
 
         [HttpPost]
@@ -31,13 +35,15 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
+                var userId = _userContextService.GetUserId();
+
                 if (createRevenueDto == null)
                 {
                     _logger.LogWarning("Os dados da receita são obrigatórios.");
                     return BadRequest("Os dados da receita são obrigatórios.");
                 }
 
-                var revenue = await _unitOfWork.Revenues.FindFirstOrDefaultAsync(r => r.Description == createRevenueDto.Description);
+                var revenue = await _unitOfWork.Revenues.FindFirstOrDefaultAsync(r => r.Description == createRevenueDto.Description && r.UserId == userId);
 
                 if (revenue != null)
                 {
@@ -46,6 +52,7 @@ namespace FinancialManagerAPI.Controllers
                 }
 
                 revenue = _mapper.Map<Revenue>(createRevenueDto);
+                revenue.UserId = userId ?? throw new UnauthorizedAccessException("Usuário não identificado.");
                 _unitOfWork.Revenues.Add(revenue);
                 await _unitOfWork.CommitAsync();
 
@@ -118,6 +125,14 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
+                var userId = _userContextService.GetUserId();
+
+                if (userId is null)
+                {
+                    _logger.LogWarning("Usuário não autenticado.");
+                    return Unauthorized();
+                }
+
                 var existingRevenue = await _unitOfWork.Revenues.GetByIdAsync(id);
                 if (existingRevenue == null)
                 {
@@ -126,6 +141,7 @@ namespace FinancialManagerAPI.Controllers
                 }
 
                 _mapper.Map(updateRevenueDto, existingRevenue);
+                existingRevenue.UserId = userId ?? throw new UnauthorizedAccessException("Usuário não identificado.");
                 _unitOfWork.Revenues.Update(existingRevenue);
                 await _unitOfWork.CommitAsync();
 

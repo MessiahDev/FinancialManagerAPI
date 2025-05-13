@@ -2,6 +2,7 @@
 using FinancialManagerAPI.Data.UnitOfWork;
 using FinancialManagerAPI.DTOs.CategoryDTOs;
 using FinancialManagerAPI.Models;
+using FinancialManagerAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,15 +16,18 @@ namespace FinancialManagerAPI.Controllers
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly ILogger<CategoryController> _logger;
+        private readonly IUserContextService _userContextService;
 
         public CategoryController(
             IUnitOfWork unitOfWork,
             IMapper mapper,
-            ILogger<CategoryController> logger)
+            ILogger<CategoryController> logger,
+            IUserContextService userContextService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _logger = logger;
+            _userContextService = userContextService;
         }
 
         [HttpPost]
@@ -31,7 +35,8 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
-                var category = await _unitOfWork.Categories.FindFirstOrDefaultAsync(c => c.Name == createCategoryDto.Name && c.UserId == createCategoryDto.UserId);
+                var userId = _userContextService.GetUserId();
+                var category = await _unitOfWork.Categories.FindFirstOrDefaultAsync(c => c.Name == createCategoryDto.Name && c.UserId == userId);
                 if (category != null)
                 {
                     _logger.LogWarning("Tentativa de registro falhada: já existe uma categoria com esse nome! {Name}.", createCategoryDto.Name);
@@ -39,6 +44,7 @@ namespace FinancialManagerAPI.Controllers
                 }
 
                 category = _mapper.Map<Category>(createCategoryDto);
+                category.UserId = userId ?? throw new UnauthorizedAccessException("Usuário não identificado.");
                 _unitOfWork.Categories.Add(category);
                 await _unitOfWork.CommitAsync();
 
@@ -121,6 +127,14 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
+                var userId = _userContextService.GetUserId();
+
+                if (userId is null)
+                {
+                    _logger.LogWarning("Usuário não autenticado.");
+                    return Unauthorized();
+                }
+
                 var existingCategory = await _unitOfWork.Categories.GetByIdAsync(id);
                 if (existingCategory == null)
                 {
@@ -129,7 +143,7 @@ namespace FinancialManagerAPI.Controllers
                 }
 
                 _mapper.Map(updateCategoryDto, existingCategory);
-
+                existingCategory.UserId = userId ?? throw new UnauthorizedAccessException("Usuário não identificado.");
                 _unitOfWork.Categories.Update(existingCategory);
                 await _unitOfWork.CommitAsync();
 
