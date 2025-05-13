@@ -37,7 +37,7 @@ namespace FinancialManagerAPI.Controllers
                     return BadRequest("Os dados da dívida são obrigatórios.");
                 }
 
-                var debt = await _unitOfWork.Debts.FindFirstOrDefaultAsync(d => d.Description == createDebtDto.Description);
+                var debt = await _unitOfWork.Debts.FindFirstOrDefaultAsync(d => d.Description == createDebtDto.Description && d.UserId == createDebtDto.UserId);
                 if (debt != null)
                 {
                     _logger.LogWarning("Tentativa de registro falhada: já existe um débito com esse nome! {Description}.", createDebtDto.Description);

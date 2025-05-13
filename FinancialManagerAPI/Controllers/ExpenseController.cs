@@ -37,7 +37,7 @@ namespace FinancialManagerAPI.Controllers
                     return BadRequest("Os dados da despesa são obrigatórios.");
                 }
 
-                var expense = await _unitOfWork.Expenses.FindFirstOrDefaultAsync(e => e.Description == createExpenseDto.Description);
+                var expense = await _unitOfWork.Expenses.FindFirstOrDefaultAsync(e => e.Description == createExpenseDto.Description && e.UserId == createExpenseDto.UserId);
 
                 if (expense != null)
                 {
