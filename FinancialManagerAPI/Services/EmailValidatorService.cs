@@ -25,7 +25,7 @@ namespace FinancialManagerAPI.Services
             }
         }
 
-        public async Task<bool> HasValidMxRecordAsync(string email)
+        bool IEmailValidatorService.HasValidMxRecord(string email)
         {
             var domain = email.Split('@').LastOrDefault()?.ToLowerInvariant();
             if (string.IsNullOrWhiteSpace(domain))

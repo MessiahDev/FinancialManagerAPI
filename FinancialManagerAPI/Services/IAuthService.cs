@@ -1,4 +1,6 @@
-﻿namespace FinancialManagerAPI.Services
+﻿using FinancialManagerAPI.Models;
+
+namespace FinancialManagerAPI.Services
 {
     public interface IAuthService
     {

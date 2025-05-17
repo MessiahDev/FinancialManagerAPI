@@ -10,13 +10,15 @@ namespace FinancialManagerAPI.Models
 
         [Required]
         [MaxLength(100)]
-        public string? Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         [Required]
-        [ForeignKey("User")]
         public int UserId { get; set; }
-        public User? User { get; set; }
 
-        public List<Expense>? Expenses { get; set; }
+        [ForeignKey(nameof(UserId))]
+        public User User { get; set; } = null!;
+
+        public ICollection<Expense> Expenses { get; set; } = new List<Expense>();
     }
 }
+

@@ -67,7 +67,7 @@ namespace FinancialManagerAPI.Controllers
                         return BadRequest("Já existe um usuário com esse e-mail!");
                     }
 
-                    if (!await _emailValidatorService.HasValidMxRecordAsync(updateDto.Email))
+                    if (!_emailValidatorService.HasValidMxRecord(updateDto.Email))
                     {
                         _logger.LogWarning("Domínio de e-mail inválido ou sem suporte para e-mails: {Email}.", updateDto.Email);
                         return BadRequest(new { message = "O domínio do e-mail é inválido! Somente e-mails reais são aceitos." });

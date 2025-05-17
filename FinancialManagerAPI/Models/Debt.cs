@@ -10,7 +10,7 @@ namespace FinancialManagerAPI.Models
 
         [Required]
         [MaxLength(200)]
-        public string? Description { get; set; }
+        public string Description { get; set; } = string.Empty;
 
         [Required]
         [Column(TypeName = "decimal(18,2)")]
@@ -24,10 +24,13 @@ namespace FinancialManagerAPI.Models
 
         [Required]
         [MaxLength(200)]
-        public string? Creditor { get; set; }
+        public string Creditor { get; set; } = string.Empty;
 
-        [ForeignKey("User")]
+        [Required]
         public int UserId { get; set; }
-        public User? User { get; set; }
+
+        [ForeignKey(nameof(UserId))]
+        public User User { get; set; } = null!;
     }
 }
+

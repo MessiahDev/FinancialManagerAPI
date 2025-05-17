@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using FinancialManagerAPI.DTOs.AuthDTOs;
 using FinancialManagerAPI.Services;
 using FinancialManagerAPI.DTOs.UserDTOs;
+using FinancialManagerAPI.Models;
 
 namespace FinancialManagerAPI.Controllers
 {
@@ -49,19 +50,26 @@ namespace FinancialManagerAPI.Controllers
         {
             _logger.LogInformation("Tentativa de registro para o usuário {Email}.", registerUserDto.Email);
 
+            if (string.IsNullOrEmpty(registerUserDto.Name) || string.IsNullOrEmpty(registerUserDto.Email) || string.IsNullOrEmpty(registerUserDto.Password))
+            {
+                _logger.LogWarning("Dados de registro incompletos fornecidos.");
+                return BadRequest(new { message = "Todos os campos (Nome, Email, Senha) são obrigatórios." });
+            }
+
             if (!_emailValidatorService.IsValidEmailFormat(registerUserDto.Email))
             {
                 _logger.LogWarning("E-mail com formato inválido: {Email}.", registerUserDto.Email);
                 return BadRequest(new { message = "E-mail com formato inválido." });
             }
 
-            if (!await _emailValidatorService.HasValidMxRecordAsync(registerUserDto.Email))
+            if (!_emailValidatorService.HasValidMxRecord(registerUserDto.Email))
             {
                 _logger.LogWarning("Domínio de e-mail inválido ou sem suporte para e-mails: {Email}.", registerUserDto.Email);
                 return BadRequest(new { message = "O domínio do e-mail é inválido! Somente e-mails reais são aceitos." });
             }
 
-            var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == registerUserDto.Email);
+            var email = registerUserDto.Email.ToLower();
+            var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email.ToLower() == email);
             if (user != null)
             {
                 _logger.LogWarning("Tentativa de registro falhada: já existe um usuário com o e-mail {Email}.", registerUserDto.Email);
@@ -72,7 +80,7 @@ namespace FinancialManagerAPI.Controllers
             {
                 Name = registerUserDto.Name,
                 Email = registerUserDto.Email,
-                PasswordHash = _passwordService.HashPassword(registerUserDto.Password),
+                PasswordHash = _passwordService.HashPassword(registerUserDto.Password!),
                 EmailConfirmed = false,
             };
 
@@ -82,14 +90,14 @@ namespace FinancialManagerAPI.Controllers
             _unitOfWork.Users.Add(user);
             await _unitOfWork.CommitAsync();
 
-            var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_BASE_URL") ?? "https://localhost:5173";
+            var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_BASE_URL") ?? "http://localhost:5173";
             var confirmationLink = $"{frontendUrl}/confirmar-email?token={token}";
 
             await _emailService.SendEmailAsync(user.Email, "Confirmação de Email", $"Clique no link para confirmar seu e-mail: {confirmationLink}");
 
             _logger.LogInformation("Usuário {Email} registrado com sucesso. Link de confirmação enviado.", user.Email);
 
-            return Ok( new { success = true, message = "Usuário registrado com sucesso. Verifique seu e-mail para confirmar." });
+            return Ok(new { success = true, message = "Usuário registrado com sucesso. Verifique seu e-mail para confirmar." });
         }
 
 
@@ -165,7 +173,7 @@ namespace FinancialManagerAPI.Controllers
                 return BadRequest(new { message = "E-mail com formato inválido." });
             }
 
-            if (!await _emailValidatorService.HasValidMxRecordAsync(request.Email))
+            if (!_emailValidatorService.HasValidMxRecord(request.Email))
             {
                 _logger.LogWarning("Domínio de e-mail inválido ou sem suporte para e-mails: {Email}.", request.Email);
                 return BadRequest(new { message = "O domínio do e-mail é inválido! Somente e-mails reais são aceitos." });
@@ -184,8 +192,15 @@ namespace FinancialManagerAPI.Controllers
                 new Claim("PasswordReset", "true")
             };
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var jwtKey = _configuration["Jwt:Key"];
+            if (string.IsNullOrEmpty(jwtKey))
+            {
+                _logger.LogError("A chave JWT não foi configurada no arquivo de configuração.");
+                return StatusCode(500, new { message = "Erro interno do servidor: chave JWT não configurada." });
+            }
+
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+            var creds = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
             var expires = DateTime.UtcNow.AddMinutes(30);
 
             var token = new JwtSecurityToken(
@@ -217,8 +232,15 @@ namespace FinancialManagerAPI.Controllers
             _logger.LogInformation("Tentativa de redefinição de senha recebida com token {Token}.", request.Token);
 
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]);
 
+            var jwtKey = _configuration["Jwt:Key"];
+            if (string.IsNullOrEmpty(jwtKey))
+            {
+                _logger.LogError("A chave JWT não foi configurada no arquivo de configuração.");
+                return StatusCode(500, new { message = "Erro interno do servidor: chave JWT não configurada." });
+            }
+
+            var signingKey = Encoding.UTF8.GetBytes(jwtKey);
             try
             {
                 var principal = tokenHandler.ValidateToken(request.Token, new TokenValidationParameters
@@ -226,7 +248,7 @@ namespace FinancialManagerAPI.Controllers
                     ValidateIssuer = false,
                     ValidateAudience = false,
                     ValidateLifetime = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    IssuerSigningKey = new SymmetricSecurityKey(signingKey),
                     ValidateIssuerSigningKey = true
                 }, out SecurityToken validatedToken);
 

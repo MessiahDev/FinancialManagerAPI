@@ -10,7 +10,7 @@ namespace FinancialManagerAPI.Models
 
         [Required]
         [MaxLength(200)]
-        public string? Description { get; set; }
+        public string Description { get; set; } = string.Empty;
 
         [Required]
         [Column(TypeName = "decimal(18,2)")]
@@ -19,16 +19,20 @@ namespace FinancialManagerAPI.Models
         [Required]
         public DateTime Date { get; set; }
 
-        [ForeignKey("Category")]
+        [Required]
         public int CategoryId { get; set; }
+
+        [ForeignKey(nameof(CategoryId))]
+        public Category Category { get; set; } = null!;
 
         [Required]
         [MaxLength(200)]
-        public string? CategoryName { get; set; }
-        public Category? Category { get; set; }
+        public string CategoryName { get; set; } = string.Empty;
 
-        [ForeignKey("User")]
+        [Required]
         public int UserId { get; set; }
-        public User? User { get; set; }
+
+        [ForeignKey(nameof(UserId))]
+        public User User { get; set; } = null!;
     }
 }

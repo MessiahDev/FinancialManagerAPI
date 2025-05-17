@@ -1,7 +1,10 @@
-﻿namespace FinancialManagerAPI.DTOs.UserDTOs;
+﻿using FinancialManagerAPI.Models.Enums;
+
+namespace FinancialManagerAPI.DTOs.UserDTOs;
 public class RegisterUserDto
 {
-    public string? Name { get; set; }
-    public string? Email { get; set; }
-    public string? Password { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public UserRole Role { get; set; }
+    public string Password { get; set; } = string.Empty;
 }

@@ -3,6 +3,6 @@
     public interface IEmailValidatorService
     {
         bool IsValidEmailFormat(string email);
-        Task<bool> HasValidMxRecordAsync(string email);
+        bool HasValidMxRecord(string email);
     }
 }

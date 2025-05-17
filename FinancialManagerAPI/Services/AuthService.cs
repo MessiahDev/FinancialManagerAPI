@@ -1,4 +1,5 @@
-﻿using FinancialManagerAPI.Services;
+﻿using FinancialManagerAPI.Models;
+using FinancialManagerAPI.Services;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -22,12 +23,15 @@ public class AuthService : IAuthService
             new Claim(ClaimTypes.Email, user.Email)
         };
 
-        if (!string.IsNullOrEmpty(user.Role))
+        claims.Add(new Claim(ClaimTypes.Role, user.Role.ToString()));
+
+        var jwtKey = _configuration["Jwt:Key"];
+        if (string.IsNullOrEmpty(jwtKey))
         {
-            claims.Add(new Claim(ClaimTypes.Role, user.Role));
+            throw new InvalidOperationException("JWT key is not configured.");
         }
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(

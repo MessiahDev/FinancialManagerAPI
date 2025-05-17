@@ -3,15 +3,15 @@ using FinancialManagerAPI.Models;
 
 namespace FinancialManagerAPI.Data.UnitOfWork
 {
-    public class UnitOfWork : IUnitOfWork
+    public class UnitOfWork : IUnitOfWork, IDisposable
     {
         private readonly AppDbContext _context;
 
-        private IRepository<User> _users;
-        private IRepository<Expense> _expenses;
-        private IRepository<Debt> _debts;
-        private IRepository<Revenue> _revenues;
-        private IRepository<Category> _categories;
+        private IRepository<User>? _users;
+        private IRepository<Expense>? _expenses;
+        private IRepository<Debt>? _debts;
+        private IRepository<Revenue>? _revenues;
+        private IRepository<Category>? _categories;
 
         public IRepository<User> Users => _users ??= new Repository<User>(_context);
         public IRepository<Expense> Expenses => _expenses ??= new Repository<Expense>(_context);
@@ -24,14 +24,9 @@ namespace FinancialManagerAPI.Data.UnitOfWork
             _context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
-        public async Task<int> CommitAsync(CancellationToken cancellationToken = default)
-        {
-            return await _context.SaveChangesAsync(cancellationToken);
-        }
+        public async Task<int> CommitAsync(CancellationToken cancellationToken = default) =>
+            await _context.SaveChangesAsync(cancellationToken);
 
-        public void Dispose()
-        {
-            _context.Dispose();
-        }
+        public void Dispose() => _context.Dispose();
     }
 }

@@ -53,8 +53,8 @@ builder.Services.AddSwaggerGen(c =>
 string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? builder.Configuration["ConnectionStrings:DefaultConnection"];
 
-string jwtKey = builder.Configuration["Jwt:Key"];
-string jwtIssuer = builder.Configuration["Jwt:Issuer"];
+string? jwtKey = builder.Configuration["Jwt:Key"];
+string? jwtIssuer = builder.Configuration["Jwt:Issuer"];
 
 if (string.IsNullOrEmpty(jwtKey))
     throw new ArgumentException("JWT Key não foi configurada.");
@@ -99,7 +99,7 @@ builder.Services.AddAuthentication(options =>
         {
             if (context.Exception is SecurityTokenExpiredException)
             {
-                context.Response.Headers.Add("Token-Expired", "true");
+                context.Response.Headers.Append("Token-Expired", "true");
             }
             return Task.CompletedTask;
         },
@@ -131,7 +131,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowVercel", policy =>
     {
         string frontEndUrl = builder.Environment.IsDevelopment()
-            ? "https://localhost:5173"
+            ? "http://localhost:5173"
             : "https://financial-manager-psi.vercel.app";
 
         policy.WithOrigins(frontEndUrl)
