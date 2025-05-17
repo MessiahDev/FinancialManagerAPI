@@ -18,11 +18,7 @@ namespace FinancialManagerAPI.Controllers
         private readonly ILogger<RevenueController> _logger;
         private readonly IUserContextService _userContextService;
 
-        public RevenueController(
-            IUnitOfWork unitOfWork,
-            IMapper mapper,
-            ILogger<RevenueController> logger,
-            IUserContextService userContextService)
+        public RevenueController(IUnitOfWork unitOfWork, IMapper mapper, ILogger<RevenueController> logger, IUserContextService userContextService)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
@@ -36,32 +32,29 @@ namespace FinancialManagerAPI.Controllers
             try
             {
                 var userId = _userContextService.GetUserId();
+                if (!userId.HasValue)
+                    return Unauthorized();
 
                 if (createRevenueDto == null)
-                {
-                    _logger.LogWarning("Os dados da receita são obrigatórios.");
                     return BadRequest("Os dados da receita são obrigatórios.");
-                }
 
-                var revenue = await _unitOfWork.Revenues.FindFirstOrDefaultAsync(r => r.Description == createRevenueDto.Description && r.UserId == userId);
+                var exists = await _unitOfWork.Revenues.FindFirstOrDefaultAsync(r =>
+                    r.Description == createRevenueDto.Description && r.UserId == userId);
 
-                if (revenue != null)
-                {
-                    _logger.LogWarning("Tentativa de registro falhada: já existe uma receita com esse nome! {Description}.", createRevenueDto.Description);
-                    return BadRequest(new { message = "Já existe uma receita com esse nome!" });
-                }
+                if (exists != null)
+                    return BadRequest("Já existe uma receita com esse nome.");
 
-                revenue = _mapper.Map<Revenue>(createRevenueDto);
-                revenue.UserId = userId ?? throw new UnauthorizedAccessException("Usuário não identificado.");
+                var revenue = _mapper.Map<Revenue>(createRevenueDto);
+                revenue.UserId = userId.Value;
+
                 _unitOfWork.Revenues.Add(revenue);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"Receita '{revenue.Description}' criada com sucesso.");
-                return CreatedAtAction(nameof(GetRevenueById), new { id = revenue.Id }, revenue);
+                return CreatedAtAction(nameof(GetRevenueById), new { id = revenue.Id }, _mapper.Map<RevenueDto>(revenue));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ocorreu um erro ao criar a receita.");
+                _logger.LogError(ex, "Erro ao criar receita.");
                 return StatusCode(500, "Erro interno do servidor.");
             }
         }
@@ -71,13 +64,16 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
-                var revenues = await _unitOfWork.Revenues.GetAllAsync();
-                var revenuesDto = _mapper.Map<IEnumerable<RevenueDto>>(revenues);
-                return Ok(revenuesDto);
+                var userId = _userContextService.GetUserId();
+                if (!userId.HasValue)
+                    return Unauthorized();
+
+                var revenues = await _unitOfWork.Revenues.FindAsync(r => r.UserId == userId);
+                return Ok(_mapper.Map<IEnumerable<RevenueDto>>(revenues));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ocorreu um erro ao buscar todas as receitas.");
+                _logger.LogError(ex, "Erro ao buscar receitas.");
                 return StatusCode(500, "Erro interno do servidor.");
             }
         }
@@ -87,35 +83,19 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
+                var userId = _userContextService.GetUserId();
+                if (!userId.HasValue)
+                    return Unauthorized();
+
                 var revenue = await _unitOfWork.Revenues.GetByIdAsync(id);
-                if (revenue == null)
-                {
-                    _logger.LogWarning($"Receita com ID {id} não encontrada.");
+                if (revenue == null || revenue.UserId != userId)
                     return NotFound();
-                }
 
-                var revenueDto = _mapper.Map<RevenueDto>(revenue);
-                return Ok(revenueDto);
+                return Ok(_mapper.Map<RevenueDto>(revenue));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ocorreu um erro ao buscar a receita com ID {RevenueId}.", id);
-                return StatusCode(500, "Erro interno do servidor.");
-            }
-        }
-
-        [HttpGet("user/{userId}")]
-        public async Task<IActionResult> GetByUserId(int userId)
-        {
-            try
-            {
-                var revenues = await _unitOfWork.Revenues.FindAsync(e => e.UserId == userId);
-                var revenueDtos = _mapper.Map<IEnumerable<RevenueDto>>(revenues);
-                return Ok(revenueDtos ?? new List<RevenueDto>());
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Ocorreu um erro ao buscar as receitas do usuário com ID {UserId}.", userId);
+                _logger.LogError(ex, "Erro ao buscar receita.");
                 return StatusCode(500, "Erro interno do servidor.");
             }
         }
@@ -126,31 +106,30 @@ namespace FinancialManagerAPI.Controllers
             try
             {
                 var userId = _userContextService.GetUserId();
-
-                if (userId is null)
-                {
-                    _logger.LogWarning("Usuário não autenticado.");
+                if (!userId.HasValue)
                     return Unauthorized();
-                }
 
-                var existingRevenue = await _unitOfWork.Revenues.GetByIdAsync(id);
-                if (existingRevenue == null)
-                {
-                    _logger.LogWarning($"Receita com ID {id} não encontrada.");
+                var revenue = await _unitOfWork.Revenues.GetByIdAsync(id);
+                if (revenue == null || revenue.UserId != userId)
                     return NotFound();
-                }
 
-                _mapper.Map(updateRevenueDto, existingRevenue);
-                existingRevenue.UserId = userId ?? throw new UnauthorizedAccessException("Usuário não identificado.");
-                _unitOfWork.Revenues.Update(existingRevenue);
+                var duplicate = await _unitOfWork.Revenues.FindFirstOrDefaultAsync(r =>
+                    r.Description == updateRevenueDto.Description &&
+                    r.UserId == userId &&
+                    r.Id != id
+                );
+                if (duplicate != null)
+                    return BadRequest("Já existe uma receita com esse nome.");
+
+                _mapper.Map(updateRevenueDto, revenue);
+                _unitOfWork.Revenues.Update(revenue);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"Receita {id} atualizada com sucesso.");
                 return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ocorreu um erro ao atualizar a receita com ID {RevenueId}.", id);
+                _logger.LogError(ex, "Erro ao atualizar receita.");
                 return StatusCode(500, "Erro interno do servidor.");
             }
         }
@@ -160,22 +139,22 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
+                var userId = _userContextService.GetUserId();
+                if (!userId.HasValue)
+                    return Unauthorized();
+
                 var revenue = await _unitOfWork.Revenues.GetByIdAsync(id);
-                if (revenue == null)
-                {
-                    _logger.LogWarning($"Receita com ID {id} não encontrada.");
+                if (revenue == null || revenue.UserId != userId)
                     return NotFound();
-                }
 
                 _unitOfWork.Revenues.Remove(revenue);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"Receita {id} deletada com sucesso.");
                 return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ocorreu um erro ao deletar a receita com ID {RevenueId}.", id);
+                _logger.LogError(ex, "Erro ao deletar receita.");
                 return StatusCode(500, "Erro interno do servidor.");
             }
         }

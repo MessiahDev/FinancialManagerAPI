@@ -36,25 +36,30 @@ namespace FinancialManagerAPI.Controllers
             try
             {
                 var userId = _userContextService.GetUserId();
-                var category = await _unitOfWork.Categories.FindFirstOrDefaultAsync(c => c.Name == createCategoryDto.Name && c.UserId == userId);
-                if (category != null)
+                if (userId is null) return Unauthorized();
+
+                var existing = await _unitOfWork.Categories
+                    .FindFirstOrDefaultAsync(c => c.Name == createCategoryDto.Name && c.UserId == userId);
+
+                if (existing != null)
                 {
-                    _logger.LogWarning("Tentativa de registro falhada: já existe uma categoria com esse nome! {Name}.", createCategoryDto.Name);
+                    _logger.LogWarning("Categoria já existe para o usuário: {Name}", createCategoryDto.Name);
                     return BadRequest(new { message = "Já existe uma categoria com esse nome!" });
                 }
 
-                category = _mapper.Map<Category>(createCategoryDto);
-                category.UserId = userId ?? throw new UnauthorizedAccessException("Usuário não identificado.");
+                var category = _mapper.Map<Category>(createCategoryDto);
+                category.UserId = userId.Value;
+
                 _unitOfWork.Categories.Add(category);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"Categoria {category.Name} criada com sucesso.");
+                _logger.LogInformation("Categoria criada com sucesso: {CategoryName}", category.Name);
 
-                return CreatedAtAction(nameof(GetById), new { id = category.Id }, category);
+                return CreatedAtAction(nameof(GetById), new { id = category.Id }, _mapper.Map<CategoryDto>(category));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ocorreu um erro ao criar a categoria {CategoryName}.", createCategoryDto.Name);
+                _logger.LogError(ex, "Erro ao criar categoria.");
                 return StatusCode(500, "Erro interno do servidor.");
             }
         }
@@ -64,14 +69,17 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
-                var categories = await _unitOfWork.Categories.GetAllAsync();
+                var userId = _userContextService.GetUserId();
+                if (userId is null) return Unauthorized();
+
+                var categories = await _unitOfWork.Categories.FindAsync(c => c.UserId == userId);
                 var categoriesDto = _mapper.Map<IEnumerable<CategoryDto>>(categories);
 
                 return Ok(categoriesDto);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ocorreu um erro ao buscar as categorias.");
+                _logger.LogError(ex, "Erro ao buscar categorias.");
                 return StatusCode(500, "Erro interno do servidor.");
             }
         }
@@ -81,10 +89,13 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
-                var category = await _unitOfWork.Categories.GetByIdAsync(id);
+                var userId = _userContextService.GetUserId();
+                if (userId is null) return Unauthorized();
+
+                var category = await _unitOfWork.Categories.FindFirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
                 if (category == null)
                 {
-                    _logger.LogWarning($"Categoria com ID {id} não encontrada.");
+                    _logger.LogWarning("Categoria com ID {Id} não encontrada para o usuário.", id);
                     return NotFound();
                 }
 
@@ -93,31 +104,7 @@ namespace FinancialManagerAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ocorreu um erro ao buscar a categoria com ID {CategoryId}.", id);
-                return StatusCode(500, "Erro interno do servidor.");
-            }
-        }
-
-        [HttpGet("user/{userId}")]
-        public async Task<IActionResult> GetByUserId(int userId)
-        {
-            try
-            {
-                var categories = await _unitOfWork.Categories.FindAsync(c => c.UserId == userId);
-
-                if (!categories.Any())
-                {
-                    _logger.LogWarning($"Nenhuma categoria encontrada para o usuário com ID {userId}. Retornando uma lista vazia.");
-                    return Ok(new List<CategoryDto>());
-                }
-
-                var categoriesDto = _mapper.Map<IEnumerable<CategoryDto>>(categories);
-
-                return Ok(categoriesDto);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Ocorreu um erro ao buscar categorias para o usuário com ID {UserId}.", userId);
+                _logger.LogError(ex, "Erro ao buscar categoria por ID.");
                 return StatusCode(500, "Erro interno do servidor.");
             }
         }
@@ -128,32 +115,34 @@ namespace FinancialManagerAPI.Controllers
             try
             {
                 var userId = _userContextService.GetUserId();
+                if (userId is null) return Unauthorized();
 
-                if (userId is null)
+                var category = await _unitOfWork.Categories.FindFirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
+                if (category == null)
                 {
-                    _logger.LogWarning("Usuário não autenticado.");
-                    return Unauthorized();
-                }
-
-                var existingCategory = await _unitOfWork.Categories.GetByIdAsync(id);
-                if (existingCategory == null)
-                {
-                    _logger.LogWarning($"Categoria com ID {id} não encontrada.");
+                    _logger.LogWarning("Categoria {Id} não encontrada ou não pertence ao usuário.", id);
                     return NotFound();
                 }
 
-                _mapper.Map(updateCategoryDto, existingCategory);
-                existingCategory.UserId = userId ?? throw new UnauthorizedAccessException("Usuário não identificado.");
-                _unitOfWork.Categories.Update(existingCategory);
+                var duplicate = await _unitOfWork.Categories.FindFirstOrDefaultAsync(c =>
+                    c.Name == updateCategoryDto.Name && c.UserId == userId && c.Id != id);
+
+                if (duplicate != null)
+                {
+                    _logger.LogWarning("Categoria duplicada: {Name}", updateCategoryDto.Name);
+                    return BadRequest("Já existe uma categoria com esse nome.");
+                }
+
+                _mapper.Map(updateCategoryDto, category);
+                _unitOfWork.Categories.Update(category);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"Categoria {id} atualizada com sucesso.");
-
+                _logger.LogInformation("Categoria {Id} atualizada com sucesso.", id);
                 return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ocorreu um erro ao atualizar a categoria com ID {CategoryId}.", id);
+                _logger.LogError(ex, "Erro ao atualizar categoria {Id}.", id);
                 return StatusCode(500, "Erro interno do servidor.");
             }
         }
@@ -163,23 +152,25 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
-                var category = await _unitOfWork.Categories.GetByIdAsync(id);
+                var userId = _userContextService.GetUserId();
+                if (userId is null) return Unauthorized();
+
+                var category = await _unitOfWork.Categories.FindFirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
                 if (category == null)
                 {
-                    _logger.LogWarning($"Categoria com ID {id} não encontrada.");
+                    _logger.LogWarning("Categoria {Id} não encontrada ou não pertence ao usuário.", id);
                     return NotFound();
                 }
 
                 _unitOfWork.Categories.Remove(category);
                 await _unitOfWork.CommitAsync();
 
-                _logger.LogInformation($"Categoria {id} deletada com sucesso.");
-
+                _logger.LogInformation("Categoria {Id} removida com sucesso.", id);
                 return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ocorreu um erro ao deletar a categoria com ID {CategoryId}.", id);
+                _logger.LogError(ex, "Erro ao remover categoria {Id}.", id);
                 return StatusCode(500, "Erro interno do servidor.");
             }
         }

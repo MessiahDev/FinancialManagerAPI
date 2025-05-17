@@ -24,6 +24,7 @@ namespace FinancialManagerAPI.Controllers
         private readonly IUserContextService _userContextService;
         private readonly IEmailService _emailService;
         private readonly IEmailValidatorService _emailValidatorService;
+        private readonly IAppSettingsService _appSettingsService;
 
         public AuthController(
             IUnitOfWork unitOfWork,
@@ -33,7 +34,8 @@ namespace FinancialManagerAPI.Controllers
             IAuthService authService,
             IUserContextService userContextService,
             IEmailService emailService,
-            IEmailValidatorService emailValidatorService)
+            IEmailValidatorService emailValidatorService,
+            IAppSettingsService appSettingsService)
         {
             _unitOfWork = unitOfWork;
             _passwordService = passwordService;
@@ -43,6 +45,7 @@ namespace FinancialManagerAPI.Controllers
             _userContextService = userContextService;
             _emailService = emailService;
             _emailValidatorService = emailValidatorService;
+            _appSettingsService = appSettingsService;
         }
 
         [HttpPost("register")]
@@ -50,7 +53,9 @@ namespace FinancialManagerAPI.Controllers
         {
             _logger.LogInformation("Tentativa de registro para o usuário {Email}.", registerUserDto.Email);
 
-            if (string.IsNullOrEmpty(registerUserDto.Name) || string.IsNullOrEmpty(registerUserDto.Email) || string.IsNullOrEmpty(registerUserDto.Password))
+            if (string.IsNullOrWhiteSpace(registerUserDto.Name) ||
+                string.IsNullOrWhiteSpace(registerUserDto.Email) ||
+                string.IsNullOrWhiteSpace(registerUserDto.Password))
             {
                 _logger.LogWarning("Dados de registro incompletos fornecidos.");
                 return BadRequest(new { message = "Todos os campos (Nome, Email, Senha) são obrigatórios." });
@@ -68,19 +73,19 @@ namespace FinancialManagerAPI.Controllers
                 return BadRequest(new { message = "O domínio do e-mail é inválido! Somente e-mails reais são aceitos." });
             }
 
-            var email = registerUserDto.Email.ToLower();
-            var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email.ToLower() == email);
-            if (user != null)
+            var emailNormalized = registerUserDto.Email.ToLowerInvariant();
+            var existingUser = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email.ToLower() == emailNormalized);
+            if (existingUser != null)
             {
                 _logger.LogWarning("Tentativa de registro falhada: já existe um usuário com o e-mail {Email}.", registerUserDto.Email);
                 return BadRequest(new { message = "Já existe um usuário com este e-mail!" });
             }
 
-            user = new User
+            var user = new User
             {
-                Name = registerUserDto.Name,
-                Email = registerUserDto.Email,
-                PasswordHash = _passwordService.HashPassword(registerUserDto.Password!),
+                Name = registerUserDto.Name.Trim(),
+                Email = emailNormalized,
+                PasswordHash = _passwordService.HashPassword(registerUserDto.Password),
                 EmailConfirmed = false,
             };
 
@@ -90,7 +95,7 @@ namespace FinancialManagerAPI.Controllers
             _unitOfWork.Users.Add(user);
             await _unitOfWork.CommitAsync();
 
-            var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_BASE_URL") ?? "http://localhost:5173";
+            var frontendUrl = _appSettingsService.GetFrontendBaseUrl();
             var confirmationLink = $"{frontendUrl}/confirmar-email?token={token}";
 
             await _emailService.SendEmailAsync(user.Email, "Confirmação de Email", $"Clique no link para confirmar seu e-mail: {confirmationLink}");
@@ -100,17 +105,10 @@ namespace FinancialManagerAPI.Controllers
             return Ok(new { success = true, message = "Usuário registrado com sucesso. Verifique seu e-mail para confirmar." });
         }
 
-
         [HttpGet("confirm-email")]
         public async Task<IActionResult> ConfirmEmail([FromQuery] string token)
         {
             _logger.LogInformation("Token recebido na URL: {Token}", token);
-
-            var allUsers = await _unitOfWork.Users.GetAllAsync();
-            foreach (var u in allUsers)
-            {
-                _logger.LogInformation("Usuário: {Email}, Token salvo: {SavedToken}", u.Email, u.EmailConfirmationToken);
-            }
 
             var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.EmailConfirmationToken == token);
             if (user == null)
@@ -133,17 +131,23 @@ namespace FinancialManagerAPI.Controllers
         [HttpPost("resend-confirmation-email")]
         public async Task<IActionResult> ResendEmailConfirmation([FromBody] string email)
         {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return BadRequest(new { message = "O e-mail é obrigatório." });
+            }
+
             _logger.LogInformation("Solicitação de reenvio de confirmação para o e-mail {Email}.", email);
 
-            var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == email);
+            var emailNormalized = email.ToLowerInvariant();
+            var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email.ToLower() == emailNormalized);
             if (user == null)
             {
-                return NotFound("Usuário não encontrado.");
+                return NotFound(new { message = "Usuário não encontrado." });
             }
 
             if (user.EmailConfirmed)
             {
-                return BadRequest("Este e-mail já foi confirmado.");
+                return BadRequest(new { message = "Este e-mail já foi confirmado." });
             }
 
             var token = _authService.GenerateToken(user);
@@ -152,19 +156,24 @@ namespace FinancialManagerAPI.Controllers
             _unitOfWork.Users.Update(user);
             await _unitOfWork.CommitAsync();
 
-            var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_BASE_URL") ?? "https://localhost:5173";
+            var frontendUrl = _appSettingsService.GetFrontendBaseUrl();
             var confirmationLink = $"{frontendUrl}/confirmar-email?token={token}";
 
             await _emailService.SendEmailAsync(user.Email, "Confirmação de Email", $"Clique no link para confirmar seu e-mail: {confirmationLink}");
 
             _logger.LogInformation("Link de confirmação reenviado para {Email}.", user.Email);
 
-            return Ok("Link de confirmação reenviado. Verifique seu e-mail.");
+            return Ok(new { message = "Link de confirmação reenviado. Verifique seu e-mail." });
         }
 
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPassword request)
         {
+            if (request == null || string.IsNullOrWhiteSpace(request.Email))
+            {
+                return BadRequest(new { message = "O e-mail é obrigatório." });
+            }
+
             _logger.LogInformation("Solicitação de redefinição de senha recebida para o e-mail {Email}.", request.Email);
 
             if (!_emailValidatorService.IsValidEmailFormat(request.Email))
@@ -179,11 +188,12 @@ namespace FinancialManagerAPI.Controllers
                 return BadRequest(new { message = "O domínio do e-mail é inválido! Somente e-mails reais são aceitos." });
             }
 
-            var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == request.Email);
+            var emailNormalized = request.Email.ToLowerInvariant();
+            var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email.ToLower() == emailNormalized);
             if (user == null)
             {
                 _logger.LogWarning("E-mail não encontrado {Email}.", request.Email);
-                return NotFound("E-mail não encontrado.");
+                return NotFound(new { message = "E-mail não encontrado." });
             }
 
             var claims = new List<Claim>
@@ -210,12 +220,7 @@ namespace FinancialManagerAPI.Controllers
             );
 
             var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
-            var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_BASE_URL");
-
-            if (string.IsNullOrEmpty(frontendUrl))
-            {
-                frontendUrl = "https://localhost:5173";
-            }
+            var frontendUrl = _appSettingsService.GetFrontendBaseUrl();
 
             var resetLink = $"{frontendUrl}/redefinir-senha?token={tokenString}";
 
@@ -223,13 +228,18 @@ namespace FinancialManagerAPI.Controllers
 
             _logger.LogInformation("Link de redefinição de senha enviado para o e-mail {Email}.", user.Email);
 
-            return Ok("Link de redefinição enviado para o e-mail.");
+            return Ok(new { message = "Link de redefinição enviado para o e-mail." });
         }
 
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPassword request)
         {
-            _logger.LogInformation("Tentativa de redefinição de senha recebida com token {Token}.", request.Token);
+            if (request == null || string.IsNullOrWhiteSpace(request.Token) || string.IsNullOrWhiteSpace(request.NewPassword))
+            {
+                return BadRequest(new { message = "Token e nova senha são obrigatórios." });
+            }
+
+            _logger.LogInformation("Tentativa de redefinição de senha recebida com token.");
 
             var tokenHandler = new JwtSecurityTokenHandler();
 
@@ -255,11 +265,11 @@ namespace FinancialManagerAPI.Controllers
                 var jwtToken = (JwtSecurityToken)validatedToken;
                 var email = jwtToken.Claims.First(x => x.Type == ClaimTypes.Email).Value;
 
-                var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email == email);
+                var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
                 if (user == null)
                 {
                     _logger.LogWarning("Usuário não encontrado para o e-mail {Email}.", email);
-                    return NotFound("Usuário não encontrado.");
+                    return NotFound(new { message = "Usuário não encontrado." });
                 }
 
                 user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
@@ -267,12 +277,12 @@ namespace FinancialManagerAPI.Controllers
 
                 _logger.LogInformation("Senha redefinida com sucesso para o usuário {Email}.", email);
 
-                return Ok("Senha redefinida com sucesso.");
+                return Ok(new { message = "Senha redefinida com sucesso." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao redefinir a senha com o token {Token}.", request.Token);
-                return BadRequest($"Token inválido ou expirado: {ex.Message}");
+                _logger.LogError(ex, "Erro ao redefinir a senha com o token.");
+                return BadRequest(new { message = $"Token inválido ou expirado: {ex.Message}" });
             }
         }
 
@@ -281,66 +291,56 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
-                _logger.LogInformation("Tentativa de login iniciada para o usuário {Email}.", loginDto.Email);
+                if (loginDto == null || string.IsNullOrWhiteSpace(loginDto.Email) || string.IsNullOrWhiteSpace(loginDto.Password))
+                    return BadRequest(new { message = "Email e senha são obrigatórios." });
 
-                var user = (await _unitOfWork.Users.FindAsync(u => u.Email == loginDto.Email)).FirstOrDefault();
+                var emailNormalized = loginDto.Email.ToLowerInvariant();
+                var user = await _unitOfWork.Users.FindFirstOrDefaultAsync(u => u.Email.ToLower() == emailNormalized);
+
                 if (user == null || !_passwordService.VerifyPassword(loginDto.Password, user.PasswordHash))
-                {
-                    _logger.LogWarning("Falha no login para o usuário {Email}.", loginDto.Email);
-                    return Unauthorized(new { message = "E-mail ou senha inválidos." });
-                }
+                    return Unauthorized(new { message = "Email ou senha incorretos." });
 
                 if (!user.EmailConfirmed)
-                {
-                    _logger.LogWarning("Tentativa de login com e-mail não confirmado: {Email}.", loginDto.Email);
-                    return UnprocessableEntity(new { message = "E-mail não confirmado! Verifique sua caixa de entrada ou spam." });
-                }
+                    return Unauthorized(new { message = "Email ainda não confirmado." });
 
                 var token = _authService.GenerateToken(user);
-
-                _logger.LogInformation("Usuário {Email} logado com sucesso.", loginDto.Email);
-
-                return Ok(new { Token = token, Message = "Login bem-sucedido." });
+                return Ok(new { token });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ocorreu um erro ao processar o login para o usuário {Email}.", loginDto.Email);
+                _logger.LogError(ex, "Erro no processo de login.");
                 return StatusCode(500, new { message = "Erro interno do servidor." });
             }
         }
 
         [Authorize]
-        [HttpGet("profile")]
-        public async Task<IActionResult> GetProfile()
+        [HttpGet("user-info")]
+        public async Task<IActionResult> GetUserInfo()
         {
             try
             {
-                var userIdClaim = _userContextService.GetUserId();
-                if (userIdClaim == null)
-                {
-                    return Unauthorized("Usuário não autenticado.");
-                }
+                var userId = _userContextService.GetUserId();
+                if (userId == null)
+                    return Unauthorized();
 
-                var userId = userIdClaim;
-                var user = await _unitOfWork.Users.GetByIdAsync(userId);
-
+                var user = await _unitOfWork.Users.GetByIdAsync(userId.Value);
                 if (user == null)
-                {
-                    return NotFound("Usuário não encontrado.");
-                }
+                    return NotFound();
 
-                return Ok(new
+                var userInfo = new User
                 {
-                    user.Id,
-                    user.Name,
-                    user.Email,
-                    user.Role
-                });
+                    Id = user.Id,
+                    Name = user.Name,
+                    Email = user.Email,
+                    Role = user.Role
+                };
+
+                return Ok(userInfo);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter o perfil do usuário.");
-                return StatusCode(500, "Erro interno do servidor.");
+                _logger.LogError(ex, "Erro ao obter informações do usuário.");
+                return StatusCode(500, new { message = "Erro interno do servidor." });
             }
         }
     }

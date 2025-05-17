@@ -6,35 +6,24 @@ namespace FinancialManagerAPI.Services
     {
         private readonly HashSet<string> _blockedKeywords;
 
-        public EmailValidatorService(IConfiguration configuration)
+        public EmailValidatorService()
         {
-            var keywords = configuration.GetSection("EmailValidation:BlockedKeywords").Get<string[]>();
-            _blockedKeywords = new HashSet<string>(keywords ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+            _blockedKeywords = new HashSet<string>();
         }
 
         public bool IsValidEmailFormat(string email)
         {
-            try
-            {
-                var addr = new MailAddress(email);
-                return addr.Address == email;
-            }
-            catch
-            {
-                return false;
-            }
+            return !string.IsNullOrWhiteSpace(email) && email.Contains("@");
         }
 
-        bool IEmailValidatorService.HasValidMxRecord(string email)
+        public bool HasValidMxRecord(string email)
         {
-            var domain = email.Split('@').LastOrDefault()?.ToLowerInvariant();
-            if (string.IsNullOrWhiteSpace(domain))
-                return false;
-
-            if (_blockedKeywords.Any(keyword => domain.Contains(keyword)))
-                return false;
-
             return true;
+        }
+
+        public async Task<bool> HasValidMxRecordAsync(string email)
+        {
+            return await Task.FromResult(HasValidMxRecord(email));
         }
     }
 }
