@@ -1,5 +1,6 @@
 using FinancialManagerAPI.Data;
 using FinancialManagerAPI.Data.Repositories;
+using FinancialManagerAPI.Data.Repositories.UserRepository;
 using FinancialManagerAPI.Data.UnitOfWork;
 using FinancialManagerAPI.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -120,6 +121,7 @@ builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<IUserContextService, UserContextService>();
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));

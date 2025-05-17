@@ -13,6 +13,5 @@ namespace FinancialManagerAPI.Data.Repositories
         void Add(T entity);
         void Update(T entity);
         void Remove(T entity);
-        Task<T?> GetByIdWithIncludesAsync(int id, params Expression<Func<T, object>>[] includes);
     }
 }

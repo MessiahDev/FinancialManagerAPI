@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using FinancialManagerAPI.Data.Repositories.UserRepository;
 using FinancialManagerAPI.Data.UnitOfWork;
 using FinancialManagerAPI.DTOs.CategoryDTOs;
 using FinancialManagerAPI.DTOs.DebtDTOs;
@@ -21,6 +22,7 @@ namespace FinancialManagerAPI.Controllers
         private readonly IPasswordService _passwordService;
         private readonly ILogger<UserController> _logger;
         private readonly IAuthService _authService;
+        private readonly IUserRepository _userRepository;
         private readonly IEmailService _emailService;
         private readonly IEmailValidatorService _emailValidatorService;
 
@@ -30,6 +32,7 @@ namespace FinancialManagerAPI.Controllers
             IConfiguration configuration,
             IPasswordService passwordService,
             IAuthService authService,
+            IUserRepository userRepository,
             IEmailService emailService,
             ILogger<UserController> logger,
             IEmailValidatorService emailValidatorService)
@@ -38,9 +41,10 @@ namespace FinancialManagerAPI.Controllers
             _mapper = mapper;
             _configuration = configuration;
             _passwordService = passwordService;
-            _logger = logger;
             _authService = authService;
+            _userRepository = userRepository;
             _emailService = emailService;
+            _logger = logger;
             _emailValidatorService = emailValidatorService;
         }
 
@@ -159,26 +163,10 @@ namespace FinancialManagerAPI.Controllers
         {
             try
             {
-                var user = await _unitOfWork.Users.GetByIdWithIncludesAsync(id,
-                u => u.Expenses,
-                u => u.Revenues,
-                u => u.Debts);
+                var userDto = await _userRepository.GetUserWithDetailsAsync(id);
 
-                if (user == null)
+                if (userDto == null)
                     return NotFound("Usuário não encontrado.");
-
-                var userCategories = await _unitOfWork.Categories.GetAllByFuncAsync(c => c.UserId == user.Id);
-
-                var userDto = new UserDto
-                {
-                    Id = user.Id,
-                    Name = user.Name,
-                    Email = user.Email,
-                    Categories = _mapper.Map<List<CategoryDto>>(userCategories),
-                    Expenses = _mapper.Map<List<ExpenseDto>>(user.Expenses),
-                    Revenues = _mapper.Map<List<RevenueDto>>(user.Revenues),
-                    Debts = _mapper.Map<List<DebtDto>>(user.Debts)
-                };
 
                 return Ok(userDto);
             }

@@ -8,5 +8,6 @@
         public DateTime DueDate { get; set; }
         public string Creditor { get; set; } = string.Empty;
         public bool IsPaid { get; set; }
+        public int UserId { get; set; }
     }
 }

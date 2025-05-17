@@ -37,14 +37,4 @@ public class Repository<T> : IRepository<T> where T : class
     public void Add(T entity) => _dbSet.Add(entity);
     public void Update(T entity) => _dbSet.Update(entity);
     public void Remove(T entity) => _dbSet.Remove(entity);
-
-    public async Task<T?> GetByIdWithIncludesAsync(int id, params Expression<Func<T, object>>[] includes)
-    {
-        IQueryable<T> query = _dbSet;
-
-        foreach (var include in includes)
-            query = query.Include(include);
-
-        return await query.AsNoTracking().FirstOrDefaultAsync(e => EF.Property<int>(e, "Id") == id);
-    }
 }
