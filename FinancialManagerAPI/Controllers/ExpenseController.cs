@@ -54,8 +54,15 @@ namespace FinancialManagerAPI.Controllers
                     return BadRequest(new { message = "Já existe uma despesa com esse nome!" });
                 }
 
+                var category = await _unitOfWork.Categories.GetByIdAsync(createExpenseDto.CategoryId);
+                if (category == null)
+                {
+                    return BadRequest("Categoria inválida.");
+                }
+
                 var expense = _mapper.Map<Expense>(createExpenseDto);
                 expense.UserId = userId.Value;
+                expense.CategoryName = category.Name;
 
                 _unitOfWork.Expenses.Add(expense);
                 await _unitOfWork.CommitAsync();
@@ -136,6 +143,12 @@ namespace FinancialManagerAPI.Controllers
                     return NotFound();
                 }
 
+                var category = await _unitOfWork.Categories.GetByIdAsync(updateExpenseDto.CategoryId);
+                if (category == null)
+                {
+                    return BadRequest("Categoria inválida.");
+                }
+
                 var duplicate = await _unitOfWork.Expenses.FindFirstOrDefaultAsync(e =>
                     e.Description == updateExpenseDto.Description &&
                     e.UserId == userId &&
@@ -145,6 +158,8 @@ namespace FinancialManagerAPI.Controllers
                     return BadRequest("Já existe uma despesa com esse nome.");
 
                 _mapper.Map(updateExpenseDto, existingExpense);
+
+                existingExpense.CategoryName = category.Name;
                 _unitOfWork.Expenses.Update(existingExpense);
                 await _unitOfWork.CommitAsync();
 

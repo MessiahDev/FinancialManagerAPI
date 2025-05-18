@@ -17,20 +17,20 @@ namespace FinancialManagerAPI.Profiles
             CreateMap<UpdateUserDto, User>();
 
             CreateMap<Expense, ExpenseDto>().ReverseMap();
-            CreateMap<CreateExpenseDto, Expense>().ReverseMap();
-            CreateMap<UpdateExpenseDto, Expense>().ReverseMap();
+            CreateMap<CreateExpenseDto, Expense>();
+            CreateMap<UpdateExpenseDto, Expense>();
 
             CreateMap<Debt, DebtDto>().ReverseMap();
-            CreateMap<CreateDebtDto, Debt>().ReverseMap();
-            CreateMap<UpdateDebtDto, Debt>().ReverseMap();
+            CreateMap<CreateDebtDto, Debt>();
+            CreateMap<UpdateDebtDto, Debt>();
 
             CreateMap<Category, CategoryDto>().ReverseMap();
-            CreateMap<CreateCategoryDto, Category>().ReverseMap();
-            CreateMap<UpdateCategoryDto, Category>().ReverseMap();
+            CreateMap<CreateCategoryDto, Category>();
+            CreateMap<UpdateCategoryDto, Category>();
 
             CreateMap<Revenue, RevenueDto>().ReverseMap();
-            CreateMap<CreateRevenueDto, Revenue>().ReverseMap();
-            CreateMap<UpdateRevenueDto, Revenue>().ReverseMap();
+            CreateMap<CreateRevenueDto, Revenue>();
+            CreateMap<UpdateRevenueDto, Revenue>();
         }
     }
 }
